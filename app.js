@@ -84,8 +84,10 @@
     const last = mail.last_processed_at || mail.last_received_at;
     const addr = mail.address || "";
     $("mailboxLine").textContent = addr
-      ? `${addr} · last mailbox read ${fmtWhen(last)} · ${fmt(mail.job_related)} job emails / ${fmt(mail.scanned)} scanned`
-      : `Last mailbox read ${fmtWhen(last)}`;
+      ? (mail.enabled
+        ? `${addr} · last mailbox read ${fmtWhen(last)} · ${fmt(mail.job_related)} job emails / ${fmt(mail.scanned)} scanned`
+        : `${addr} · mailbox reading is off until you turn it on and press Sync mailbox`)
+      : "Mailbox reading stays off unless you choose it.";
   }
 
   function renderFunnel(o) {
@@ -331,8 +333,8 @@
       const lead = $("setupLead");
       if (lead) {
         lead.textContent = configured
-          ? "Change your answers one screen at a time. API keys stay optional."
-          : "A few questions, one screen at a time. APIs are optional at the end.";
+          ? "Change your answers one screen at a time. Mail is never scanned unless you say so."
+          : "A few questions, one screen at a time. Your data stays on your computer.";
       }
       showWizardStep(configured ? 1 : 1);
       showScreen("screen-setup");
@@ -499,6 +501,8 @@
     }
     toggleAdzuna();
     toggleImapHost();
+    const consent = status && status.mail_enabled ? "yes" : "no";
+    setMailConsent(consent, { fromEmail: Boolean((c.email || "").trim()) });
   }
 
   function toggleAdzuna() {
@@ -511,6 +515,23 @@
     const wrap = $("imapHostWrap");
     const sel = $("mailProvider");
     if (wrap && sel) wrap.hidden = sel.value !== "other";
+  }
+
+  function setMailConsent(value, opts) {
+    const consent = value === "yes" ? "yes" : "no";
+    const emailOn = Boolean((opts && opts.fromEmail) || ($("setupEmail") && $("setupEmail").value.trim()));
+    const hidden = $("mailScanConsent");
+    if (hidden) hidden.value = consent;
+    document.querySelectorAll("#mailConsentChoices [data-consent]").forEach((btn) => {
+      btn.classList.toggle("is-on", btn.dataset.consent === consent);
+    });
+    const ask = $("mailConsentBlock");
+    if (ask) ask.hidden = !emailOn;
+    const fields = $("mailScanFields");
+    if (fields) fields.hidden = STATIC_MODE || !emailOn || consent !== "yes";
+    const localOnly = $("mailLocalOnly");
+    if (localOnly) localOnly.hidden = !(STATIC_MODE && emailOn && consent === "yes");
+    toggleImapHost();
   }
 
   async function saveSetup(ev) {
@@ -540,9 +561,14 @@
         payload.location = payload.locations.join(", ");
         payload.resume_ok = !!(file || payload.resume_pdf);
         payload.resume_name = file ? file.name : "";
+        delete payload.llm_api_key;
+        delete payload.scraper_api_key;
+        delete payload.mail_password;
+        delete payload.adzuna_app_id;
+        payload.mail_scan_consent = "no";
         localStorage.setItem("jobAutopilotSetup", JSON.stringify(payload));
         err.hidden = false;
-        err.textContent = "Saved in this browser. GitHub Pages cannot search job boards. On your computer run: python3 autopilot.py dashboard — then fill the same form there to start finding jobs.";
+        err.textContent = "Saved in this browser only — we never receive it. This public page cannot read mail or search boards. On your computer run python3 autopilot.py dashboard. Mail is scanned only if you say yes, then press Sync mailbox yourself.";
         return;
       }
       const res = await fetch("/api/setup", { method: "POST", body: fd });
@@ -645,11 +671,15 @@
 
   function updateSyncButton(sync) {
     const btn = $("btnSync");
+    if (!btn) return;
+    const enabled = !!(state.overview && state.overview.setup && state.overview.setup.mail_enabled);
+    btn.hidden = !enabled;
+    if (!enabled) return;
     if (sync && sync.running) {
       btn.disabled = true;
       btn.classList.add("busy");
       btn.textContent = "Reading mailbox";
-      setSyncNote("Scanning your mailbox over IMAP. Statuses update only when a message clearly matches a posting.", true);
+      setSyncNote("This computer is reading your mailbox over IMAP. Mail never comes to us.", true);
     } else {
       btn.disabled = false;
       btn.classList.remove("busy");
@@ -660,7 +690,7 @@
         const bits = sync.result.map((r) =>
           `${r.track}: ${r.updated} updated, ${r.classified} classified`
         );
-        setSyncNote(`Mailbox sync finished. ${bits.join(" · ")}`, true);
+        setSyncNote(`Mailbox sync finished on this computer. ${bits.join(" · ")}`, true);
       }
     }
   }
@@ -694,6 +724,10 @@
   }
 
   $("btnSync").addEventListener("click", async () => {
+    const ok = window.confirm(
+      "Read your mailbox from this computer now?\n\nMail is fetched over IMAP to this machine only. It is not sent to us. Nothing runs unless you press this button."
+    );
+    if (!ok) return;
     try {
       const sync = await postJSON("/api/sync", {});
       updateSyncButton(sync);
@@ -739,6 +773,15 @@
       if (ui) ui.textContent = name || "Drop a PDF here, or browse";
     });
   }
+  if ($("setupEmail")) {
+    $("setupEmail").addEventListener("input", () => {
+      const current = ($("mailScanConsent") && $("mailScanConsent").value) || "no";
+      setMailConsent(current, { fromEmail: Boolean($("setupEmail").value.trim()) });
+    });
+  }
+  document.querySelectorAll("#mailConsentChoices [data-consent]").forEach((btn) => {
+    btn.addEventListener("click", () => setMailConsent(btn.dataset.consent, { fromEmail: true }));
+  });
   document.querySelectorAll("#wizardProgress button").forEach((btn) => {
     btn.addEventListener("click", () => {
       const dest = Number(btn.dataset.goto);
@@ -769,7 +812,7 @@
     const note = $("pagesNote");
     if (note) {
       note.hidden = false;
-      note.textContent = "This public site walks through name, resume, roles, locations, and schedule. APIs are optional on the last screen. Finding jobs still runs on your computer with python3 autopilot.py dashboard.";
+      note.textContent = "This public page never receives your data. Answers stay in this browser. Mailbox reading is not available here. On your computer, mail is scanned only if you say yes, then press Sync mailbox yourself.";
     }
     $("btnSetupCancel").hidden = true;
     $("btnSetupSave").textContent = "Save in this browser";

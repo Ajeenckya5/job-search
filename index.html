@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=desk5">
+  <link rel="stylesheet" href="styles.css?v=privacy1">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -28,7 +28,7 @@
           <li><button type="button" data-goto="5"><span class="n">05</span> Schedule</button></li>
           <li><button type="button" data-goto="6"><span class="n">06</span> Optional</button></li>
         </ol>
-        <p class="rail-foot">Finding jobs runs on your computer. This desk only takes your brief.</p>
+        <p class="rail-foot">Private to you. All files stay on your computer. Mail is never scanned unless you say so, then press Sync yourself.</p>
       </aside>
       <div class="setup-stage">
         <p class="step-index" id="setupStepIndex">01  /  06</p>
@@ -90,10 +90,39 @@
             <p class="setup-lead">Skip what you don’t have. Keys stay on your machine.</p>
             <div class="field-block">
               <h3>Contact</h3>
+              <p class="privacy-note">Optional. Saved only on this computer. Nothing is sent to Job Autopilot, GitHub, or any server we run.</p>
               <div class="setup-grid">
-                <label>Email <input name="email" type="email" placeholder="you@email.com"></label>
+                <label>Email <input name="email" id="setupEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
                 <label>Phone <input name="phone" placeholder="optional"></label>
                 <label class="wide">LinkedIn <input name="linkedin" placeholder="https://linkedin.com/in/you"></label>
+              </div>
+              <div class="mail-consent" id="mailConsentBlock" hidden>
+                <p class="consent-q">Do you want this computer to read that mailbox?</p>
+                <div class="choice-row" id="mailConsentChoices">
+                  <button type="button" data-consent="no" class="is-on">No. Email is just a label.</button>
+                  <button type="button" data-consent="yes">Yes. I’ll scan it myself.</button>
+                </div>
+                <input type="hidden" name="mail_scan_consent" id="mailScanConsent" value="no">
+                <p class="file-hint">The default is no. If you say yes, nothing runs until you press Sync mailbox. Mail is read over IMAP from this machine only. We never get a copy.</p>
+                <p class="file-hint" id="mailLocalOnly" hidden>Mailbox reading is not available on this public page. On your computer you can add access yourself — it still never runs automatically.</p>
+              </div>
+              <div id="mailScanFields" hidden>
+                <h3>Mailbox access</h3>
+                <p class="file-hint">You add this. It is never turned on automatically.</p>
+                <div class="setup-grid">
+                  <label>Mailbox provider
+                    <select name="mail_provider" id="mailProvider">
+                      <option value="auto">Auto-detect from your email</option>
+                      <option value="gmail">Gmail / Google Workspace</option>
+                      <option value="outlook">Outlook / Microsoft 365 / Hotmail</option>
+                      <option value="yahoo">Yahoo</option>
+                      <option value="icloud">iCloud</option>
+                      <option value="other">Other — enter an IMAP host</option>
+                    </select>
+                  </label>
+                  <label>Mailbox password or app password <input name="mail_password" type="password" placeholder="only on this computer" autocomplete="off"></label>
+                  <label class="wide" id="imapHostWrap" hidden>IMAP host <input name="imap_host" placeholder="imap.your-university.edu"></label>
+                </div>
               </div>
             </div>
             <div class="field-block">
@@ -105,6 +134,7 @@
             </div>
             <div class="field-block">
               <h3>APIs <span>optional</span></h3>
+              <p class="privacy-note">Leave blank to keep scoring on this computer. A key is only sent to the provider you pick, never to us.</p>
               <div class="setup-grid">
                 <label>Scoring API
                   <select name="llm_provider">
@@ -126,24 +156,12 @@
                 </label>
                 <label>Scraper API key <input name="scraper_api_key" type="password" placeholder="optional" autocomplete="off"></label>
                 <label id="adzunaIdWrap" hidden>Adzuna app id <input name="adzuna_app_id" autocomplete="off"></label>
-                <label>Mailbox provider
-                  <select name="mail_provider" id="mailProvider">
-                    <option value="auto">Auto-detect from your email</option>
-                    <option value="gmail">Gmail / Google Workspace</option>
-                    <option value="outlook">Outlook / Microsoft 365 / Hotmail</option>
-                    <option value="yahoo">Yahoo</option>
-                    <option value="icloud">iCloud</option>
-                    <option value="other">Other — enter an IMAP host</option>
-                  </select>
-                </label>
-                <label>Mailbox password or app password <input name="mail_password" type="password" placeholder="optional" autocomplete="off"></label>
-                <label class="wide" id="imapHostWrap" hidden>IMAP host <input name="imap_host" placeholder="imap.your-university.edu"></label>
               </div>
             </div>
           </div>
 
           <div class="setup-actions">
-            <p class="caption" id="setupCaption">Keys stay on your computer.</p>
+            <p class="caption" id="setupCaption">Private to this computer. We never receive your data.</p>
             <div class="setup-actions-btns">
               <button type="button" class="btn btn-ghost" id="btnSetupCancel" hidden>Back to app</button>
               <button type="button" class="btn btn-ghost" id="btnWizardBack" hidden>Back</button>
@@ -310,10 +328,10 @@
     </main>
 
     <footer>
-      Status only changes when an email both classifies clearly and matches a known company and role.
+      Everything stays on this computer for this user. Mail is read only when you press Sync mailbox. We never receive a copy.
     </footer>
   </section>
 
-  <script src="app.js?v=desk5"></script>
+  <script src="app.js?v=privacy1"></script>
 </body>
 </html>
