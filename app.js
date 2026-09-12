@@ -242,12 +242,16 @@
         : `${list.slice(0, 3).join(", ")} +${list.length - 3} more`;
     const locList = s.locations && s.locations.length ? s.locations : String(s.location || "").split(/[\n,;]+/).map((x) => x.trim()).filter(Boolean);
     const locText = locList.length ? locList.join(", ") : "Not set";
+    const sources = STATIC_MODE
+      ? "Google Jobs and public boards, scored on this device"
+      : "Google Jobs, LinkedIn, and the other boards — each match is scored against your resume";
     const rows = [
       ["Resume", resume],
       ["Job titles", titles],
       ["Locations", locText],
       ["Look back", `${s.lookback_days || "—"} days of postings`],
       ["Schedule", Number(s.runs_per_day) > 0 ? `${s.runs_per_day} times per day` : "Manual — press Find jobs"],
+      ["Sources", sources],
     ];
     host.innerHTML = rows.map(([k, v]) => `
       <div class="profile-item">
@@ -615,7 +619,7 @@
     $("pipeline").innerHTML = jobTable(rows);
     $("pipelineCaption").textContent = rows.length
       ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
-      : "Press Find jobs to search from this phone. Matches stay on the device.";
+      : "Press Find jobs to search Google and public boards from this phone. Matches stay on the device.";
     $("mail").innerHTML = mailTable([]);
     $("mailTableCaption").textContent = "Mail is read on a computer after you say yes and press Sync mailbox.";
     if ($("btnScout")) $("btnScout").hidden = false;
@@ -926,7 +930,7 @@
       $("pipeline").innerHTML = jobTable(rows);
       $("pipelineCaption").textContent = rows.length
         ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
-        : "Press Find jobs to search from this phone. Matches stay on the device.";
+        : "Press Find jobs to search Google and public boards from this phone. Matches stay on the device.";
       return;
     }
     const status = $("statusFilter").value;
@@ -1051,7 +1055,7 @@
       throw new Error("Save your name and at least one job title, then press Find jobs.");
     }
     updateScoutButton({ running: true }, { announce: false });
-    setSyncNote("Searching public job lists from this device. Your resume stays here.", true);
+    setSyncNote("Searching Google and public boards from this device. Your resume stays here.", true);
     const result = await scoutApi.run({
       ...setup,
       roles,
@@ -1070,7 +1074,7 @@
     setSyncNote(
       n
         ? `Found ${n} jobs on this device. Excel is ready — tap Download Excel.`
-        : `No matches in the last ${setup.lookback_days || 7} days from the phone boards${missed ? " (some boards were blocked)" : ""}. Try another title or a longer look-back.`,
+        : `No matches in the last ${setup.lookback_days || 7} days${missed ? " (some boards were blocked)" : ""}. Try another title or a longer look-back.`,
       true
     );
   }

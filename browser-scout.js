@@ -202,6 +202,202 @@
     bag.set(key, job);
   }
 
+  function decodeUddg(href) {
+    try {
+      const u = new URL(href, "https://duckduckgo.com/");
+      const raw = u.searchParams.get("uddg");
+      let out = raw || href.split("&rut=")[0];
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          const next = decodeURIComponent(out);
+          if (next === out) break;
+          out = next;
+        } catch (_) {
+          break;
+        }
+      }
+      return out;
+    } catch (_) {
+      return href;
+    }
+  }
+
+  function isPostingUrl(url) {
+    const u = String(url || "");
+    return /greenhouse\.io\/[^/]+\/jobs\/\d+/i.test(u)
+      || /jobs\.lever\.co\/[^/]+\/[0-9a-f-]{16,}/i.test(u)
+      || /jobs\.ashbyhq\.com\/[^/]+\/[^/?#]+/i.test(u)
+      || /apply\.workable\.com\/[^/]+\/j\//i.test(u)
+      || /myworkdayjobs\.com\/.+\/job\//i.test(u)
+      || /linkedin\.com\/jobs\/view\//i.test(u)
+      || /indeed\.com\/.*(viewjob|jk=)/i.test(u)
+      || /google\.com\/search.*(?:udm=8|ibp=htl)/i.test(u);
+  }
+
+  function splitHeading(heading) {
+    let s = String(heading || "").replace(/\s+[-–]\s+(Lever|Greenhouse(?: Software)?|Ashby|LinkedIn|Indeed|ZipRecruiter)\s*$/i, "").trim();
+    const parts = s.split(/\s+[-–]\s+/);
+    if (parts.length < 2) return { title: s, company: "" };
+    const roleish = /engineer|analyst|developer|scientist|intern|designer|researcher|specialist|associate|coordinator|operator|consultant/i;
+    if (roleish.test(parts[0]) && !roleish.test(parts.slice(1).join(" "))) {
+      return { title: parts[0], company: parts.slice(1).join(" - ") };
+    }
+    return { company: parts[0], title: parts.slice(1).join(" - ") };
+  }
+
+  async function getText(url, ms) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms || 14000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, referrerPolicy: "no-referrer" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      return await res.text();
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  async function readPublic(target) {
+    const urls = [
+      "https://r.jina.ai/" + target,
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(target),
+    ];
+    let last = "";
+    for (let i = 0; i < urls.length; i += 1) {
+      try {
+        const text = await getText(urls[i], 14000);
+        if (text && text.length > 400) return text;
+        last = text || last;
+      } catch (_) {}
+    }
+    if (last) return last;
+    throw new Error("blocked");
+  }
+
+  function parseDdgMarkdown(text) {
+    const rows = [];
+    const lines = String(text || "").split(/\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      const m = lines[i].match(/^##\s+\[([^\]]+)\]\(([^)]+)\)/);
+      if (!m) continue;
+      let snip = "";
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j += 1) {
+        const ln = lines[j].trim();
+        if (!ln || ln.startsWith("## ") || ln.startsWith("[![") || ln === "Ad") continue;
+        snip = ln.replace(/^\[[^\]]*\]\s*/, "").replace(/\*\*/g, " ");
+        break;
+      }
+      rows.push({ heading: m[1], href: decodeUddg(m[2]), snip });
+    }
+    return rows;
+  }
+
+  function parseDdgHtml(html) {
+    const rows = [];
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      doc.querySelectorAll("a.result__a").forEach((a) => {
+        const box = a.closest(".result");
+        const snipEl = box && box.querySelector(".result__snippet, .result__body");
+        rows.push({
+          heading: (a.textContent || "").trim(),
+          href: decodeUddg(a.getAttribute("href") || ""),
+          snip: snipEl ? snipEl.textContent.trim() : "",
+        });
+      });
+    } catch (_) {}
+    return rows;
+  }
+
+  function parseGoogleMarkdown(text) {
+    if (/unusual traffic|captcha/i.test(text || "")) return [];
+    const rows = [];
+    const lines = String(text || "").split(/\n/).map((l) => l.replace(/\*\*/g, "").trim()).filter(Boolean);
+    for (let i = 0; i < lines.length - 2; i += 1) {
+      const loc = lines[i + 2] || "";
+      if (!/\bvia\b/i.test(loc)) continue;
+      const title = lines[i];
+      const company = lines[i + 1];
+      if (!title || title.length < 4 || title.length > 120) continue;
+      if (/skip to|sign in|job postings|search results|date posted|saved jobs|more jobs/i.test(title)) continue;
+      rows.push({
+        heading: `${company} - ${title}`,
+        title,
+        company,
+        location: loc.replace(/\s+via\s+.*/i, "").replace(/[•·]/g, " ").trim(),
+        href: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${company} jobs`)}&udm=8`,
+        snip: loc,
+      });
+    }
+    return rows.slice(0, 15);
+  }
+
+  function ingestSearchRows(bag, rows, roles, locations, resumeText) {
+    (rows || []).forEach((row) => {
+      const url = String(row.href || "").split("&rut=")[0];
+      if (!url || /duckduckgo\.com|\/y\.js/i.test(url)) return;
+      if (!isPostingUrl(url)) return;
+      const split = row.title
+        ? { title: row.title, company: row.company || "" }
+        : splitHeading(row.heading);
+      if (!split.title) return;
+      const job = {
+        title: split.title,
+        company: split.company,
+        location: row.location || "",
+        url,
+        source: "google",
+        posted_at: "",
+        description: String(row.snip || row.heading || "").slice(0, 1200),
+      };
+      const m = matchJob(job, roles, resumeText);
+      if (!m) return;
+      pushJob(bag, {
+        ...job,
+        id: `google:${url}`,
+        match_score: m.score,
+        why: m.why,
+        track: m.role,
+        status: "new",
+        first_seen: new Date().toISOString(),
+      });
+    });
+  }
+
+  async function fromGoogle(bag, roles, locations, days, resumeText) {
+    const loc = (locations && locations[0]) || "United States";
+    const slice = (roles || []).slice(0, 4);
+    const queries = [];
+    slice.forEach((role) => {
+      queries.push(`${role} jobs ${loc}`);
+      queries.push(`${role} site:jobs.lever.co`);
+      queries.push(`${role} site:boards.greenhouse.io`);
+    });
+    const uniq = [...new Set(queries)].slice(0, 10);
+    let ok = false;
+    for (let i = 0; i < uniq.length; i += 3) {
+      await Promise.all(uniq.slice(i, i + 3).map(async (q) => {
+        try {
+          const target = "http://html.duckduckgo.com/html/?q=" + encodeURIComponent(q);
+          const text = await readPublic(target);
+          const rows = /result__a/.test(text) ? parseDdgHtml(text) : parseDdgMarkdown(text);
+          ingestSearchRows(bag, rows, roles, locations, resumeText);
+          ok = true;
+        } catch (_) {}
+      }));
+    }
+    if (slice[0]) {
+      try {
+        const gtext = await readPublic(
+          "https://www.google.com/search?q=" + encodeURIComponent(`${slice[0]} jobs ${loc}`) + "&udm=8&hl=en&gl=us"
+        );
+        ingestSearchRows(bag, parseGoogleMarkdown(gtext), roles, locations, resumeText);
+        ok = true;
+      } catch (_) {}
+    }
+    if (!ok) throw new Error("blocked");
+  }
+
   async function fromRemoteOK(bag, roles, locations, days, resumeText) {
     const data = await getJson("https://remoteok.com/api");
     (Array.isArray(data) ? data : []).forEach((row) => {
@@ -395,6 +591,7 @@
     const bag = new Map();
     const errors = [];
     const tasks = [
+      ["Google", fromGoogle],
       ["RemoteOK", fromRemoteOK],
       ["Remotive", fromRemotive],
       ["Jobicy", fromJobicy],
