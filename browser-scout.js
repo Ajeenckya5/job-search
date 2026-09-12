@@ -222,11 +222,25 @@
     }
   }
 
+  function sourceFromUrl(url) {
+    const u = String(url || "");
+    if (/linkedin\.com\/jobs\/view\//i.test(u)) return "linkedin";
+    if (/indeed\.com/i.test(u)) return "indeed";
+    if (/jobright\.ai\/jobs\/info\//i.test(u)) return "jobright";
+    return "google";
+  }
+
+  function isListingTitle(title) {
+    const t = String(title || "");
+    return /\|\s*jobright\s*$/i.test(t)
+      || /\bjobs in\b.+\|\s*(jobright|linkedin|indeed)\b/i.test(t);
+  }
+
   function isPostingUrl(url) {
     const u = String(url || "");
-    return /linkedin\.com\/jobs\/view\//i.test(u)
+    return /linkedin\.com\/jobs\/view\/(?:[^/]*-)?\d{8,}/i.test(u)
       || /indeed\.com\/.*(viewjob|jk=)/i.test(u)
-      || /jobright\.ai\/jobs\//i.test(u)
+      || /jobright\.ai\/jobs\/info\/[A-Za-z0-9_-]+/i.test(u)
       || /google\.com\/search.*(?:udm=8|ibp=htl)/i.test(u);
   }
 
@@ -336,13 +350,14 @@
       const split = row.title
         ? { title: row.title, company: row.company || "" }
         : splitHeading(row.heading);
-      if (!split.title) return;
+      if (!split.title || isListingTitle(split.title) || isListingTitle(row.heading)) return;
+      const source = sourceFromUrl(url);
       const job = {
         title: split.title,
         company: split.company,
         location: row.location || "",
         url,
-        source: "google",
+        source,
         posted_at: "",
         description: String(row.snip || row.heading || "").slice(0, 1200),
       };
@@ -367,7 +382,7 @@
     slice.forEach((role) => {
       queries.push(`${role} jobs ${loc} site:linkedin.com/jobs/view`);
       queries.push(`${role} jobs ${loc} site:indeed.com/viewjob`);
-      queries.push(`${role} jobs ${loc} site:jobright.ai`);
+      queries.push(`${role} jobs ${loc} site:jobright.ai/jobs/info`);
     });
     const uniq = [...new Set(queries)].slice(0, 10);
     let ok = false;
