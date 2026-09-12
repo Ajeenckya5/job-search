@@ -687,10 +687,15 @@
         errors.push(name);
       }
     }));
+    const q = googleQuery;
     const jobs = [...bag.values()]
       .sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
       .slice(0, MAX_JOBS)
-      .map((j) => ({ ...j, description: (j.description || "").slice(0, 400) }));
+      .map((j) => ({
+        ...j,
+        description: (j.description || "").slice(0, 400),
+        search_query: j.search_query || q || "",
+      }));
     saveJobs(jobs);
     const meta = {
       finished_at: new Date().toISOString(),
