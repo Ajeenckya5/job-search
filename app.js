@@ -271,7 +271,7 @@
         </div>
         <p class="caption">${digestLine}</p>
       </div>`;
-    }).join("") || `<p class="empty">Save setup, then click Find jobs.</p>`;
+    }).join("") || `<p class="empty">${STATIC_MODE ? "Job search runs on your computer." : "Save setup, then click Find jobs."}</p>`;
   }
 
   function renderTrackNav(tracks) {
@@ -297,7 +297,10 @@
   }
 
   function isConfigured() {
-    if (STATIC_MODE) return false;
+    if (STATIC_MODE) {
+      return !!(state.overview && state.overview.setup && state.overview.setup.configured)
+        || !!setupFromStored(storedSetup());
+    }
     if (!state.overview || !state.overview.setup) return false;
     return !!state.overview.setup.configured;
   }
@@ -318,7 +321,7 @@
   async function applyRoute() {
     const path = routePath();
     const configured = isConfigured();
-    if (STATIC_MODE || !configured || path === "/setup" || path === "/settings") {
+    if (!configured || path === "/setup" || path === "/settings") {
       let status = (state.overview && state.overview.setup) || null;
       if (!status && !STATIC_MODE) {
         try { status = await getJSON("/api/setup-status"); }
@@ -345,6 +348,7 @@
     const view = path === "/applications" ? "apps" : path === "/mail" ? "mail" : "home";
     showView(view);
     document.title = `${TITLES[view]} · Job Autopilot`;
+    if (STATIC_MODE) renderStaticDashboard();
   }
 
   function collectRepeat(listId) {
@@ -457,6 +461,99 @@
     }
   }
 
+  function setupFromStored(raw) {
+    if (!raw) return null;
+    const name = String(raw.name || (raw.candidate && raw.candidate.name) || "").trim();
+    const roles = Array.isArray(raw.roles)
+      ? raw.roles.filter(Boolean)
+      : String(raw.roles || "").split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    const resumeOk = !!(raw.resume_ok || raw.resume_name || raw.resume_pdf || raw.configured);
+    if (!name || !roles.length || !resumeOk) return null;
+    const email = String(raw.email || (raw.candidate && raw.candidate.email) || "").trim();
+    const locValues = Array.isArray(raw.locations) && raw.locations.length
+      ? raw.locations.filter(Boolean)
+      : String(raw.location || "").split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    return {
+      configured: true,
+      candidate: {
+        name,
+        email,
+        phone: raw.phone || "",
+        linkedin: raw.linkedin || "",
+      },
+      name,
+      email,
+      phone: raw.phone || "",
+      linkedin: raw.linkedin || "",
+      roles,
+      location: locValues.join(", "),
+      locations: locValues,
+      resume_pdf: raw.resume_pdf || "",
+      resume_ok: true,
+      resume_name: raw.resume_name || "",
+      lookback_days: raw.lookback_days || 7,
+      runs_per_day: raw.runs_per_day || 4,
+      max_years_required: raw.max_years_required || 3,
+      llm_provider: raw.llm_provider || "gemini",
+      scraper_type: raw.scraper_type || "none",
+      mail_enabled: false,
+      mail_scan_consent: false,
+      mail_provider: raw.mail_provider || "auto",
+      imap_host: raw.imap_host || "",
+    };
+  }
+
+  function emptyOverview(setup) {
+    const email = (setup.candidate && setup.candidate.email) || setup.email || "";
+    const name = (setup.candidate && setup.candidate.name) || setup.name || "";
+    return {
+      setup,
+      candidate: { name, email, mail_enabled: false },
+      kpis: {
+        applied: 0, waiting: 0, interviews: 0, assessments: 0, offers: 0, rejected: 0,
+        companies: 0, stale_applied_21d: 0, reached_interview: 0, reached_assessment: 0, response_rate: 0,
+      },
+      mailbox: {
+        enabled: false, address: email, scanned: 0, job_related: 0,
+        receipts_this_week: 0, receipts_last_week: 0,
+      },
+      funnel_reached: { applied: 0, assessment: 0, interview: 0, offer: 0 },
+      funnel_current: { waiting: 0, rejected: 0 },
+      weekly_mail: [],
+      weekly_jobs: [],
+      insights: [],
+      attention: [],
+      companies: [],
+      tracks: [],
+      sync: { running: false },
+      scout: { running: false },
+    };
+  }
+
+  function renderStaticDashboard() {
+    const setup = (state.overview && state.overview.setup) || setupFromStored(storedSetup());
+    if (!setup) return;
+    state.overview = emptyOverview(setup);
+    renderProfile(setup);
+    renderTrackNav([]);
+    renderKpis(state.overview.kpis, state.overview.mailbox);
+    renderFunnel(state.overview);
+    stackedChart($("mailChart"), [], ["applied", "rejected", "interview"]);
+    $("mailCaption").textContent = "Mailbox reading is not available on this public page.";
+    stackedChart($("jobsChart"), [], ["applied", "rejected", "interview"]);
+    renderInsights([]);
+    $("attention").innerHTML = jobTable([]);
+    renderCompanies([]);
+    renderTracks([]);
+    $("pipeline").innerHTML = jobTable([]);
+    $("pipelineCaption").textContent = "Applications appear when you run the search on your computer.";
+    $("mail").innerHTML = mailTable([]);
+    $("mailTableCaption").textContent = "Mail is read on your computer after you say yes and press Sync mailbox.";
+    if ($("btnScout")) $("btnScout").hidden = true;
+    if ($("btnSync")) $("btnSync").hidden = true;
+    setSyncNote("This is your desk. Searching boards and reading mail run on your computer — this public page never receives that data.", true);
+  }
+
   function formPayload(form) {
     const data = Object.fromEntries(new FormData(form).entries());
     delete data.resume_file;
@@ -567,9 +664,16 @@
         delete payload.mail_password;
         delete payload.adzuna_app_id;
         payload.mail_scan_consent = "no";
+        payload.configured = true;
         localStorage.setItem("jobAutopilotSetup", JSON.stringify(payload));
-        err.hidden = false;
-        err.textContent = "Saved in this browser only — we never receive it. This public page cannot read mail or search boards. On your computer run python3 autopilot.py dashboard. Mail is scanned only if you say yes, then press Sync mailbox yourself.";
+        const setup = setupFromStored(payload);
+        if (!setup) throw new Error("Save your name, resume, and at least one role first.");
+        state.overview = emptyOverview(setup);
+        if (location.hash !== "#/") location.hash = "#/";
+        showScreen("screen-app");
+        showView("home");
+        document.title = `${TITLES.home} · Job Autopilot`;
+        renderStaticDashboard();
         return;
       }
       const res = await fetch("/api/setup", { method: "POST", body: fd });
@@ -594,6 +698,10 @@
   function updateScoutButton(scout) {
     const btn = $("btnScout");
     if (!btn) return;
+    if (STATIC_MODE) {
+      btn.hidden = true;
+      return;
+    }
     if (scout && scout.running) {
       btn.disabled = true;
       btn.classList.add("busy");
@@ -638,6 +746,11 @@
   }
 
   async function loadPipeline() {
+    if (STATIC_MODE) {
+      $("pipeline").innerHTML = jobTable([]);
+      $("pipelineCaption").textContent = "Applications appear when you run the search on your computer.";
+      return;
+    }
     const status = $("statusFilter").value;
     const q = $("jobSearch").value.trim();
     const url = `/api/pipeline?track=${encodeURIComponent(state.track)}&status=${encodeURIComponent(status)}&q=${encodeURIComponent(q)}&limit=80`;
@@ -661,6 +774,11 @@
   }
 
   async function loadMail() {
+    if (STATIC_MODE) {
+      $("mail").innerHTML = mailTable([]);
+      $("mailTableCaption").textContent = "Mail is read on your computer after you say yes and press Sync mailbox.";
+      return;
+    }
     const stage = $("mailStage").value;
     const linked = $("mailLinked").value;
     const data = await getJSON(
@@ -673,6 +791,10 @@
   function updateSyncButton(sync) {
     const btn = $("btnSync");
     if (!btn) return;
+    if (STATIC_MODE) {
+      btn.hidden = true;
+      return;
+    }
     const enabled = !!(state.overview && state.overview.setup && state.overview.setup.mail_enabled);
     btn.hidden = !enabled;
     if (!enabled) return;
@@ -719,12 +841,20 @@
   }
 
   async function refresh() {
+    if (STATIC_MODE) {
+      renderStaticDashboard();
+      return;
+    }
     const data = await loadOverview();
     if (data && data.setup && !data.setup.configured) return;
     await Promise.all([loadPipeline(), loadMail()]);
   }
 
   $("btnSync").addEventListener("click", async () => {
+    if (STATIC_MODE) {
+      setSyncNote("Mailbox sync runs on your computer after you say yes, then press Sync mailbox.", true);
+      return;
+    }
     const ok = window.confirm(
       "Read your mailbox from this computer now?\n\nMail is fetched over IMAP to this machine only. It is not sent to us. Nothing runs unless you press this button."
     );
@@ -739,6 +869,10 @@
   });
 
   $("btnScout").addEventListener("click", async () => {
+    if (STATIC_MODE) {
+      setSyncNote("Find jobs runs on your computer after you open the local dashboard.", true);
+      return;
+    }
     try {
       const scout = await postJSON("/api/scout", {});
       updateScoutButton(scout);
@@ -811,16 +945,16 @@
 
   function bootStatic() {
     const note = $("pagesNote");
+    const setup = setupFromStored(storedSetup());
+    if (setup) state.overview = emptyOverview(setup);
     if (note) {
-      note.hidden = false;
-      note.textContent = "This public page never receives your data. Answers stay in this browser. Mailbox reading is not available here. On your computer, mail is scanned only if you say yes, then press Sync mailbox yourself.";
+      note.hidden = !!setup;
+      note.textContent = "This public page never receives your data. Answers stay in this browser.";
     }
-    $("btnSetupCancel").hidden = true;
-    $("btnSetupSave").textContent = "Save in this browser";
-    fillSetup(storedSetup());
-    showWizardStep(1);
-    showScreen("screen-setup");
-    document.title = "Set up · Job Autopilot";
+    applyRoute().catch(() => {
+      showScreen("screen-setup");
+      document.title = "Set up · Job Autopilot";
+    });
   }
 
   if (STATIC_MODE) bootStatic();
