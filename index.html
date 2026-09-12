@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1d3f5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Job Autopilot">
+  <title>Job Autopilot</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=wizard">
+</head>
+<body>
+  <section class="screen is-on" id="screen-setup">
+    <div class="setup-shell">
+      <p class="eyebrow">Job Autopilot</p>
+      <h1 id="setupHeading">Set up your job search</h1>
+      <p class="setup-lead" id="setupLead">A few questions, one screen at a time. APIs are optional at the end.</p>
+      <p class="sync-note" id="pagesNote" hidden></p>
+      <ol class="wizard-progress" id="wizardProgress" aria-label="Setup steps">
+        <li><button type="button" data-goto="1">Name</button></li>
+        <li><button type="button" data-goto="2">Resume</button></li>
+        <li><button type="button" data-goto="3">Roles</button></li>
+        <li><button type="button" data-goto="4">Locations</button></li>
+        <li><button type="button" data-goto="5">Schedule</button></li>
+        <li><button type="button" data-goto="6">Optional</button></li>
+      </ol>
+      <form class="setup-card" id="setupForm">
+        <p class="sync-note" id="setupError" hidden></p>
+
+        <div class="wizard-step is-on" data-step="1">
+          <h2>What’s your name?</h2>
+          <p class="setup-lead">This is how the app addresses you.</p>
+          <div class="setup-grid">
+            <label class="wide">Name <input name="name" placeholder="Your name" autocomplete="name"></label>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="2">
+          <h2>Upload your resume</h2>
+          <p class="setup-lead">Every posting is scored against this file. PDF works best.</p>
+          <div class="setup-grid">
+            <label class="wide">Resume
+              <input name="resume_file" type="file" accept=".pdf,.txt,.doc,.docx,application/pdf">
+              <span class="file-hint" id="resumeHint">PDF preferred.</span>
+            </label>
+            <label class="wide">Or paste the full path to your resume <input name="resume_pdf" placeholder="/Users/you/Downloads/resume.pdf"></label>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="3">
+          <h2>What job roles are you looking for?</h2>
+          <p class="setup-lead">Add as many titles as you want. Each one is searched separately.</p>
+          <div id="roleList" class="repeat-list"></div>
+          <button type="button" class="btn btn-ghost" id="btnAddRole">Add another role</button>
+        </div>
+
+        <div class="wizard-step" data-step="4">
+          <h2>Where do you want to work?</h2>
+          <p class="setup-lead">Add one or more locations. Each role is searched in each location.</p>
+          <div id="locationList" class="repeat-list"></div>
+          <button type="button" class="btn btn-ghost" id="btnAddLocation">Add another location</button>
+        </div>
+
+        <div class="wizard-step" data-step="5">
+          <h2>How many times a day should it run?</h2>
+          <p class="setup-lead">This is how often the app looks for new postings.</p>
+          <div class="setup-grid">
+            <label class="wide">Times per day <input name="runs_per_day" type="number" min="1" max="24" value="4"></label>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="6">
+          <h2>Optional extras</h2>
+          <p class="setup-lead">Skip anything you don’t have. You can add API keys and mailbox access later.</p>
+          <div class="setup-grid">
+            <label>Email <input name="email" type="email" placeholder="you@email.com"></label>
+            <label>Phone <input name="phone" placeholder="optional"></label>
+            <label class="wide">LinkedIn <input name="linkedin" placeholder="https://linkedin.com/in/you"></label>
+            <label>How far back to look (days) <input name="lookback_days" type="number" min="1" max="60" value="7"></label>
+            <label>Skip postings that require more than this many years <input name="max_years_required" type="number" min="0" max="20" value="3"></label>
+            <label>Scoring API
+              <select name="llm_provider">
+                <option value="gemini">Google Gemini (free)</option>
+                <option value="groq">Groq (free)</option>
+                <option value="openai">OpenAI</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="xai">xAI Grok</option>
+              </select>
+            </label>
+            <label>Scoring API key <input name="llm_api_key" type="password" placeholder="optional" autocomplete="off"></label>
+            <label>Job scraper API
+              <select name="scraper_type" id="scraperType">
+                <option value="none">Built-in scrapers only</option>
+                <option value="jsearch">JSearch / RapidAPI</option>
+                <option value="adzuna">Adzuna</option>
+                <option value="serpapi">SerpAPI Google Jobs</option>
+              </select>
+            </label>
+            <label>Scraper API key <input name="scraper_api_key" type="password" placeholder="optional" autocomplete="off"></label>
+            <label id="adzunaIdWrap" hidden>Adzuna app id <input name="adzuna_app_id" autocomplete="off"></label>
+            <label>Mailbox provider
+              <select name="mail_provider" id="mailProvider">
+                <option value="auto">Auto-detect from your email</option>
+                <option value="gmail">Gmail / Google Workspace</option>
+                <option value="outlook">Outlook / Microsoft 365 / Hotmail</option>
+                <option value="yahoo">Yahoo</option>
+                <option value="icloud">iCloud</option>
+                <option value="other">Other — enter an IMAP host</option>
+              </select>
+            </label>
+            <label>Mailbox password or app password <input name="mail_password" type="password" placeholder="optional" autocomplete="off"></label>
+            <label class="wide" id="imapHostWrap" hidden>IMAP host <input name="imap_host" placeholder="imap.your-university.edu"></label>
+          </div>
+        </div>
+
+        <p class="caption" id="setupCaption">Keys stay on your computer. Finding jobs runs locally.</p>
+        <div class="setup-actions">
+          <button type="button" class="btn btn-ghost" id="btnSetupCancel">Back to app</button>
+          <button type="button" class="btn btn-ghost" id="btnWizardBack">Back</button>
+          <button type="button" class="btn" id="btnWizardNext">Continue</button>
+          <button type="submit" class="btn" id="btnSetupSave" hidden>Save and open the app</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-app">
+    <header class="top">
+      <a class="brand" href="#/">
+        <p class="eyebrow">Job Autopilot</p>
+        <h1 id="candidateName">Job search</h1>
+        <p class="sub" id="mailboxLine">Your search workspace</p>
+      </a>
+      <nav class="app-nav" aria-label="App">
+        <a href="#/" data-view="home">Overview</a>
+        <a href="#/applications" data-view="apps">Applications</a>
+        <a href="#/mail" data-view="mail">Mail</a>
+      </nav>
+      <div class="top-actions">
+        <div class="seg" id="trackSeg" role="tablist" aria-label="Track">
+          <button class="seg-btn is-on" data-track="all" type="button">All</button>
+        </div>
+        <button class="btn" id="btnScout" type="button">Find jobs</button>
+        <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
+        <a class="btn btn-ghost" id="btnSetup" href="#/settings">Resume &amp; search</a>
+      </div>
+    </header>
+
+    <main>
+      <p class="sync-note" id="syncNote" hidden></p>
+
+      <section class="view is-on" id="view-home">
+        <section class="panel profile-panel">
+          <header class="panel-h row">
+            <div>
+              <h2>Resume, titles, and location</h2>
+              <p>These are the answers used when you click Find jobs.</p>
+            </div>
+            <a class="btn btn-ghost" href="#/settings">Edit</a>
+          </header>
+          <div class="profile-grid" id="searchProfile"></div>
+        </section>
+
+        <section class="kpis" id="kpis">
+          <p class="empty" style="grid-column:1/-1">Loading your workspace…</p>
+        </section>
+
+        <section class="grid-2">
+          <article class="panel">
+            <header class="panel-h">
+              <h2>Hiring funnel</h2>
+              <p>Applications matched from the mailbox and job ledger.</p>
+            </header>
+            <div id="funnel"></div>
+          </article>
+          <article class="panel">
+            <header class="panel-h">
+              <h2>Mailbox activity</h2>
+              <p>Job-related emails by week.</p>
+            </header>
+            <div class="chart" id="mailChart"></div>
+            <p class="caption" id="mailCaption"></p>
+          </article>
+        </section>
+
+        <section class="grid-2">
+          <article class="panel">
+            <header class="panel-h">
+              <h2>What the numbers mean</h2>
+            </header>
+            <div class="insights" id="insights"></div>
+          </article>
+          <article class="panel">
+            <header class="panel-h">
+              <h2>Applications logged</h2>
+              <p>When a matched posting first entered the ledger.</p>
+            </header>
+            <div class="chart" id="jobsChart"></div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <header class="panel-h">
+            <h2>Needs attention</h2>
+            <p>Interviews, assessments, and offers.</p>
+          </header>
+          <div class="table-wrap" id="attention"></div>
+        </section>
+
+        <section class="grid-2">
+          <article class="panel">
+            <header class="panel-h">
+              <h2>Companies in play</h2>
+            </header>
+            <div id="companies"></div>
+          </article>
+          <article class="panel">
+            <header class="panel-h">
+              <h2>Search snapshot</h2>
+            </header>
+            <div id="tracks"></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="view" id="view-apps">
+        <section class="panel">
+          <header class="panel-h row">
+            <div>
+              <h2>Application ledger</h2>
+              <p>Every matched application. Change status here if mail got it wrong.</p>
+            </div>
+            <div class="filters">
+              <select id="statusFilter">
+                <option value="applied,assessment,interview,offer,rejected,withdrawn">All applications</option>
+                <option value="interview,assessment,offer">Active pipeline</option>
+                <option value="applied">Waiting</option>
+                <option value="interview">Interviews</option>
+                <option value="assessment">Assessments</option>
+                <option value="rejected">Rejected</option>
+                <option value="offer">Offers</option>
+              </select>
+              <input id="jobSearch" type="search" placeholder="Search title or company" autocomplete="off">
+            </div>
+          </header>
+          <div class="table-wrap" id="pipeline"></div>
+          <p class="caption" id="pipelineCaption"></p>
+        </section>
+      </section>
+
+      <section class="view" id="view-mail">
+        <section class="panel">
+          <header class="panel-h row">
+            <div>
+              <h2>Job-related mail</h2>
+              <p>Classified inbox. Personal mail is excluded.</p>
+            </div>
+            <div class="filters">
+              <select id="mailStage">
+                <option value="job">All job mail</option>
+                <option value="applied">Receipts</option>
+                <option value="interview">Interviews</option>
+                <option value="assessment">Assessments</option>
+                <option value="rejected">Rejections</option>
+                <option value="offer">Offers</option>
+              </select>
+              <select id="mailLinked">
+                <option value="all">Matched and unmatched</option>
+                <option value="linked">Matched to a posting</option>
+                <option value="unlinked">Unmatched</option>
+              </select>
+            </div>
+          </header>
+          <div class="table-wrap" id="mail"></div>
+          <p class="caption" id="mailTableCaption"></p>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      Status only changes when an email both classifies clearly and matches a known company and role.
+    </footer>
+  </section>
+
+  <script src="app.js?v=wizard"></script>
+</body>
+</html>
