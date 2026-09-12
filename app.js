@@ -754,10 +754,13 @@
 
   async function pingExcel() {
     try {
-      const scout = await scoutJSON("/api/scout");
-      updateExcelButton(scout.excel);
+      const data = await scoutJSON("/api/overview?track=all");
+      updateExcelButton(data.excel || (data.scout && data.scout.excel));
     } catch (_) {
-      /* local dashboard may be off */
+      try {
+        const scout = await scoutJSON("/api/scout");
+        updateExcelButton(scout.excel);
+      } catch (_) { /* local dashboard may be off */ }
     }
   }
 
