@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=scout1">
+  <link rel="stylesheet" href="styles.css?v=excel1">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -193,6 +193,7 @@
           <button class="seg-btn is-on" data-track="all" type="button">All</button>
         </div>
         <button class="btn" id="btnScout" type="button" title="Run the job scraper now">Find jobs</button>
+        <a class="btn" id="btnExcel" hidden href="/api/excel">Download Excel</a>
         <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
         <a class="btn btn-ghost" id="btnSetup" href="#/settings">Resume &amp; search</a>
       </div>
@@ -210,6 +211,7 @@
             </div>
             <div class="filters">
               <button class="btn" id="btnScoutInline" type="button">Run scraper now</button>
+              <a class="btn btn-ghost" id="btnExcelInline" hidden href="/api/excel">Download Excel</a>
               <a class="btn btn-ghost" href="#/settings">Edit</a>
             </div>
           </header>
@@ -337,6 +339,6 @@
     </footer>
   </section>
 
-  <script src="app.js?v=scout1"></script>
+  <script src="app.js?v=excel1"></script>
 </body>
 </html>

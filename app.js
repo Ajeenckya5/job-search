@@ -555,6 +555,7 @@
     if ($("btnScoutInline")) $("btnScoutInline").hidden = false;
     if ($("btnSync")) $("btnSync").hidden = true;
     setSyncNote("Press Find jobs to run the scraper on your computer. This public page never receives the results.", true);
+    pingExcel();
   }
 
   function formPayload(form) {
@@ -700,7 +701,7 @@
     }
   }
 
-  function updateScoutButton(scout) {
+  function updateScoutButton(scout, opts) {
     ["btnScout", "btnScoutInline"].forEach((id) => {
       const btn = $(id);
       if (!btn) return;
@@ -715,12 +716,48 @@
         btn.textContent = id === "btnScoutInline" ? "Run scraper now" : "Find jobs";
       }
     });
+    updateExcelButton((scout && scout.excel) || (scout && scout.result && scout.result.excel));
+    const announce = !opts || opts.announce !== false;
+    if (!announce) return;
     if (scout && scout.running) {
-      setSyncNote("Searching boards and scoring against your resume. This can take several minutes.", true);
+      setSyncNote("Searching boards and scoring against your resume. Excel will be ready to download when this finishes.", true);
     } else if (scout && scout.error) {
       setSyncNote(`Job search failed: ${scout.error}`, true);
     } else if (scout && scout.result && scout.finished_at) {
-      setSyncNote("Job search finished. The ledger and shortlist are updated.", true);
+      const ready = scout.excel && scout.excel.ready;
+      setSyncNote(
+        ready
+          ? "Job search finished. Excel is ready — click Download Excel."
+          : "Job search finished. The ledger and shortlist are updated.",
+        true
+      );
+    }
+  }
+
+  function excelUrl(excel) {
+    const path = (excel && excel.url) || "/api/excel?track=main";
+    return STATIC_MODE ? LOCAL_APP + path : path;
+  }
+
+  function updateExcelButton(excel) {
+    const ready = !!(excel && excel.ready);
+    ["btnExcel", "btnExcelInline"].forEach((id) => {
+      const btn = $(id);
+      if (!btn) return;
+      btn.hidden = !ready;
+      if (!ready) return;
+      btn.href = excelUrl(excel);
+      btn.setAttribute("download", excel.name || "jobs.xlsx");
+      btn.textContent = "Download Excel";
+    });
+  }
+
+  async function pingExcel() {
+    try {
+      const scout = await scoutJSON("/api/scout");
+      updateExcelButton(scout.excel);
+    } catch (_) {
+      /* local dashboard may be off */
     }
   }
 
@@ -747,7 +784,8 @@
     renderCompanies(data.companies || []);
     renderTracks(data.tracks || []);
     updateSyncButton(data.sync);
-    updateScoutButton(data.scout);
+    updateScoutButton(data.scout, { announce: !!(data.scout && data.scout.running) });
+    updateExcelButton(data.excel || (data.scout && data.scout.excel));
     return data;
   }
 
@@ -853,7 +891,13 @@
         scoutTimer = null;
         if (scout.finished_at && !STATIC_MODE) await refresh();
         else if (scout.finished_at) {
-          setSyncNote("Job search finished on your computer. Open the local dashboard to see new matches.", true);
+          updateExcelButton(scout.excel);
+          setSyncNote(
+            scout.excel && scout.excel.ready
+              ? "Job search finished on your computer. Excel is ready — click Download Excel."
+              : "Job search finished on your computer. Open the local dashboard to see new matches.",
+            true
+          );
         }
       }
     } catch (err) {
