@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Job Autopilot">
   <title>Job Autopilot</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=google2">
+  <link rel="stylesheet" href="styles.css?v=google3">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -57,7 +57,7 @@
 
           <div class="wizard-step" data-step="3">
             <h2>Which roles?</h2>
-            <p class="setup-lead">Add every title you want searched. Each one is run on Google Jobs and the other boards, then scored against your resume.</p>
+            <p class="setup-lead">Add every title you want searched. Each one is run on LinkedIn, Indeed, Jobright, and Google, then scored against your resume.</p>
             <div id="roleList" class="repeat-list"></div>
             <button type="button" class="btn btn-ghost" id="btnAddRole">Add another role</button>
           </div>
@@ -82,7 +82,7 @@
             <div class="setup-grid">
               <label class="wide">Custom times per day <input name="runs_per_day" type="number" min="0" max="24" value="4"></label>
             </div>
-            <p class="file-hint">0 means only when you press Find jobs. Find jobs searches Google and the other boards from this phone or computer. Your resume stays on the device.</p>
+            <p class="file-hint">0 means only when you press Find jobs. Find jobs searches LinkedIn, Indeed, Jobright, and Google. Your resume stays on the device.</p>
           </div>
 
           <div class="wizard-step" data-step="6">
@@ -190,7 +190,7 @@
         <div class="seg" id="trackSeg" role="tablist" aria-label="Track">
           <button class="seg-btn is-on" data-track="all" type="button">All</button>
         </div>
-        <button class="btn" id="btnScout" type="button" title="Search Google Jobs and the other boards now">Find jobs</button>
+        <button class="btn" id="btnScout" type="button" title="Search LinkedIn, Indeed, Jobright, and Google now">Find jobs</button>
         <a class="btn" id="btnExcel" hidden href="/api/excel">Download Excel</a>
         <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
         <a class="btn btn-ghost" id="btnSetup" href="#/settings">Resume &amp; search</a>
@@ -205,7 +205,7 @@
           <header class="panel-h row">
             <div>
               <h2>Resume, titles, and location</h2>
-              <p>These are the answers used when you click Find jobs, including Google Jobs scoring.</p>
+              <p>These are the answers used when you click Find jobs on LinkedIn, Indeed, Jobright, and Google.</p>
             </div>
             <div class="filters">
               <button class="btn" id="btnScoutInline" type="button">Run scraper now</button>
@@ -338,7 +338,7 @@
     </footer>
   </section>
 
-  <script src="browser-scout.js?v=google2"></script>
-  <script src="app.js?v=google2"></script>
+  <script src="browser-scout.js?v=google3"></script>
+  <script src="app.js?v=google3"></script>
 </body>
 </html>

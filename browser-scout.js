@@ -224,13 +224,9 @@
 
   function isPostingUrl(url) {
     const u = String(url || "");
-    return /greenhouse\.io\/[^/]+\/jobs\/\d+/i.test(u)
-      || /jobs\.lever\.co\/[^/]+\/[0-9a-f-]{16,}/i.test(u)
-      || /jobs\.ashbyhq\.com\/[^/]+\/[^/?#]+/i.test(u)
-      || /apply\.workable\.com\/[^/]+\/j\//i.test(u)
-      || /myworkdayjobs\.com\/.+\/job\//i.test(u)
-      || /linkedin\.com\/jobs\/view\//i.test(u)
+    return /linkedin\.com\/jobs\/view\//i.test(u)
       || /indeed\.com\/.*(viewjob|jk=)/i.test(u)
+      || /jobright\.ai\/jobs\//i.test(u)
       || /google\.com\/search.*(?:udm=8|ibp=htl)/i.test(u);
   }
 
@@ -369,9 +365,9 @@
     const slice = (roles || []).slice(0, 4);
     const queries = [];
     slice.forEach((role) => {
-      queries.push(`${role} jobs ${loc}`);
-      queries.push(`${role} site:jobs.lever.co`);
-      queries.push(`${role} site:boards.greenhouse.io`);
+      queries.push(`${role} jobs ${loc} site:linkedin.com/jobs/view`);
+      queries.push(`${role} jobs ${loc} site:indeed.com/viewjob`);
+      queries.push(`${role} jobs ${loc} site:jobright.ai`);
     });
     const uniq = [...new Set(queries)].slice(0, 10);
     let ok = false;
@@ -398,160 +394,173 @@
     if (!ok) throw new Error("blocked");
   }
 
-  async function fromRemoteOK(bag, roles, locations, days, resumeText) {
-    const data = await getJson("https://remoteok.com/api");
-    (Array.isArray(data) ? data : []).forEach((row) => {
-      if (!row || !row.id) return;
-      const posted = parseWhen(row.epoch);
-      if (!withinLookback(posted, days)) return;
-      const job = {
-        title: row.position || row.title || "",
-        company: row.company || "",
-        location: row.location || "Remote",
-        url: row.url || row.apply_url || `https://remoteok.com/remote-jobs/${row.id}`,
-        source: "remoteok",
-        posted_at: posted,
-        description: String(row.description || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-      };
-      if (!locationOk(job.location, locations)) return;
-      const m = matchJob(job, roles, resumeText);
-      if (!m) return;
-      pushJob(bag, {
-        ...job,
-        id: `remoteok:${row.id}`,
-        match_score: m.score,
-        why: m.why,
-        track: m.role,
-        status: "new",
-        first_seen: posted || new Date().toISOString(),
-      });
+  function addScored(bag, job, roles, locations, days, resumeText) {
+    if (!job || !job.title || !job.url) return;
+    if (job.posted_at && !withinLookback(job.posted_at, days)) return;
+    if (job.location && !locationOk(job.location, locations)) return;
+    const m = matchJob(job, roles, resumeText);
+    if (!m) return;
+    pushJob(bag, {
+      ...job,
+      match_score: m.score,
+      why: m.why,
+      track: m.role,
+      status: "new",
+      first_seen: job.posted_at || new Date().toISOString(),
     });
   }
 
-  async function fromRemotive(bag, roles, locations, days, resumeText) {
-    const data = await getJson("https://remotive.com/api/remote-jobs");
-    (data.jobs || []).forEach((row) => {
-      const posted = parseWhen(row.publication_date);
-      if (!withinLookback(posted, days)) return;
-      const job = {
-        title: row.title || "",
-        company: row.company_name || "",
-        location: row.candidate_required_location || "Remote",
-        url: row.url || "",
-        source: "remotive",
-        posted_at: posted,
-        description: String(row.description || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-      };
-      if (!job.url) return;
-      if (!locationOk(job.location, locations)) return;
-      const m = matchJob(job, roles, resumeText);
-      if (!m) return;
-      pushJob(bag, {
-        ...job,
-        id: `remotive:${row.id || job.url}`,
-        match_score: m.score,
-        why: m.why,
-        track: m.role,
-        status: "new",
-        first_seen: posted || new Date().toISOString(),
-      });
-    });
-  }
-
-  async function fromJobicy(bag, roles, locations, days, resumeText) {
-    const data = await getJson("https://jobicy.com/api/v2/remote-jobs?count=100");
-    (data.jobs || []).forEach((row) => {
-      const posted = parseWhen(row.pubDate);
-      if (!withinLookback(posted, days)) return;
-      const job = {
-        title: row.jobTitle || row.title || "",
-        company: row.companyName || "",
-        location: row.jobGeo || "Remote",
-        url: row.url || row.jobUrl || "",
-        source: "jobicy",
-        posted_at: posted,
-        description: String(row.jobExcerpt || row.jobDescription || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-      };
-      if (!job.url) return;
-      if (!locationOk(job.location, locations)) return;
-      const m = matchJob(job, roles, resumeText);
-      if (!m) return;
-      pushJob(bag, {
-        ...job,
-        id: `jobicy:${row.id || job.url}`,
-        match_score: m.score,
-        why: m.why,
-        track: m.role,
-        status: "new",
-        first_seen: posted || new Date().toISOString(),
-      });
-    });
-  }
-
-  async function fromArbeitnow(bag, roles, locations, days, resumeText) {
-    const data = await getJson("https://www.arbeitnow.com/api/job-board-api");
-    (data.data || []).forEach((row) => {
-      const posted = parseWhen(row.created_at);
-      if (!withinLookback(posted, days)) return;
-      const job = {
-        title: row.title || "",
-        company: row.company_name || "",
-        location: row.remote ? `${row.location || ""} · Remote` : (row.location || ""),
-        url: row.url || (row.slug ? `https://www.arbeitnow.com/jobs/${row.slug}` : ""),
-        source: "arbeitnow",
-        posted_at: posted,
-        description: String(row.description || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-      };
-      if (!job.url) return;
-      if (!locationOk(job.location, locations)) return;
-      const m = matchJob(job, roles, resumeText);
-      if (!m) return;
-      pushJob(bag, {
-        ...job,
-        id: `arbeitnow:${row.slug || job.url}`,
-        match_score: m.score,
-        why: m.why,
-        track: m.role,
-        status: "new",
-        first_seen: posted || new Date().toISOString(),
-      });
-    });
-  }
-
-  async function fromMuse(bag, roles, locations, days, resumeText) {
-    const urls = [0, 1, 2].map((page) =>
-      `https://www.themuse.com/api/public/jobs?page=${page}&descending=true`
-    );
-    for (const url of urls) {
-      const data = await getJson(url);
-      (data.results || []).forEach((row) => {
-        const posted = parseWhen(row.publication_date);
-        if (!withinLookback(posted, days)) return;
-        const where = (row.locations || []).map((x) => x.name).filter(Boolean).join(", ");
-        const job = {
-          title: row.name || "",
-          company: (row.company && row.company.name) || "",
-          location: where || "",
-          url: (row.refs && row.refs.landing_page) || "",
-          source: "themuse",
-          posted_at: posted,
-          description: String(row.contents || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-        };
-        if (!job.url) return;
-        if (!locationOk(job.location, locations)) return;
-        const m = matchJob(job, roles, resumeText);
-        if (!m) return;
-        pushJob(bag, {
-          ...job,
-          id: `muse:${row.id || job.url}`,
-          match_score: m.score,
-          why: m.why,
-          track: m.role,
-          status: "new",
-          first_seen: posted || new Date().toISOString(),
+  async function fromLinkedIn(bag, roles, locations, days, resumeText) {
+    const loc = (locations && locations[0]) || "United States";
+    let ok = false;
+    for (const role of (roles || []).slice(0, 4)) {
+      const target = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+        + `?keywords=${encodeURIComponent(role)}&location=${encodeURIComponent(loc)}`
+        + "&f_E=1%2C2%2C3&f_JT=F%2CC&start=0";
+      try {
+        const text = await readPublic(target);
+        ok = true;
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        doc.querySelectorAll("a[href*='/jobs/view']").forEach((a) => {
+          const href = (a.getAttribute("href") || "").split("?")[0];
+          const idm = href.match(/(\d{8,})/);
+          if (!idm) return;
+          const card = a.closest("li") || a.parentElement;
+          const titleEl = card && card.querySelector(".base-search-card__title, h3");
+          const compEl = card && card.querySelector(".base-search-card__subtitle, h4");
+          const locEl = card && card.querySelector(".job-search-card__location");
+          const timeEl = card && card.querySelector("time");
+          addScored(bag, {
+            id: `linkedin:${idm[1]}`,
+            title: ((titleEl && titleEl.textContent) || a.textContent || "").trim(),
+            company: (compEl && compEl.textContent || "").trim(),
+            location: (locEl && locEl.textContent || loc).trim(),
+            url: href.startsWith("http") ? href : `https://www.linkedin.com/jobs/view/${idm[1]}`,
+            source: "linkedin",
+            posted_at: parseWhen(timeEl && (timeEl.getAttribute("datetime") || timeEl.textContent)),
+            description: ((titleEl && titleEl.textContent) || a.textContent || "").trim(),
+          }, roles, locations, days, resumeText);
         });
-      });
+        const md = [...text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)]*linkedin\.com\/jobs\/view\/(\d{8,})[^)]*)\)/gi)];
+        md.forEach((m) => {
+          addScored(bag, {
+            id: `linkedin:${m[3]}`,
+            title: m[1].replace(/\s+/g, " ").trim(),
+            company: "",
+            location: loc,
+            url: m[2].split("?")[0],
+            source: "linkedin",
+            posted_at: "",
+            description: m[1],
+          }, roles, locations, days, resumeText);
+        });
+      } catch (_) {}
     }
+    if (!ok) throw new Error("blocked");
+  }
+
+  async function fromIndeed(bag, roles, locations, days, resumeText) {
+    const loc = (locations && locations[0]) || "United States";
+    const fromage = Math.max(1, Math.min(14, Number(days) || 7));
+    let ok = false;
+    for (const role of (roles || []).slice(0, 4)) {
+      const target = "https://www.indeed.com/rss"
+        + `?q=${encodeURIComponent(role)}&l=${encodeURIComponent(loc)}&sort=date&fromage=${fromage}`;
+      try {
+        const text = await readPublic(target);
+        ok = true;
+        const xml = text.includes("<item") ? text : "";
+        if (xml) {
+          const doc = new DOMParser().parseFromString(xml, "text/xml");
+          doc.querySelectorAll("item").forEach((item) => {
+            const link = (item.querySelector("link") && item.querySelector("link").textContent) || "";
+            const guid = (item.querySelector("guid") && item.querySelector("guid").textContent) || "";
+            const jk = ((link + guid).match(/jk=([a-zA-Z0-9]+)/) || [])[1];
+            if (!jk) return;
+            const titleRaw = (item.querySelector("title") && item.querySelector("title").textContent) || "";
+            const parts = titleRaw.split(/\s+[-–]\s+/);
+            addScored(bag, {
+              id: `indeed:${jk}`,
+              title: (parts[0] || titleRaw).trim(),
+              company: (parts[1] || "").trim(),
+              location: (parts[2] || loc).trim(),
+              url: `https://www.indeed.com/viewjob?jk=${jk}`,
+              source: "indeed",
+              posted_at: parseWhen(item.querySelector("pubDate") && item.querySelector("pubDate").textContent),
+              description: (item.querySelector("description") && item.querySelector("description").textContent || titleRaw).replace(/<[^>]+>/g, " "),
+            }, roles, locations, days, resumeText);
+          });
+        }
+        const jks = [...text.matchAll(/viewjob\?jk=([a-zA-Z0-9]+)/g)];
+        const titles = [...text.matchAll(/##\s+\[([^\]]+)\]\([^)]*jk=([a-zA-Z0-9]+)[^)]*\)/g)];
+        titles.forEach((m) => {
+          const parts = m[1].split(/\s+[-–]\s+/);
+          addScored(bag, {
+            id: `indeed:${m[2]}`,
+            title: (parts[0] || m[1]).trim(),
+            company: (parts[1] || "").trim(),
+            location: loc,
+            url: `https://www.indeed.com/viewjob?jk=${m[2]}`,
+            source: "indeed",
+            posted_at: "",
+            description: m[1],
+          }, roles, locations, days, resumeText);
+        });
+        jks.forEach((m) => {
+          addScored(bag, {
+            id: `indeed:${m[1]}`,
+            title: role,
+            company: "",
+            location: loc,
+            url: `https://www.indeed.com/viewjob?jk=${m[1]}`,
+            source: "indeed",
+            posted_at: "",
+            description: role,
+          }, roles, locations, days, resumeText);
+        });
+      } catch (_) {}
+    }
+    if (!ok) throw new Error("blocked");
+  }
+
+  async function fromJobright(bag, roles, locations, days, resumeText) {
+    const loc = (locations && locations[0]) || "United States";
+    let ok = false;
+    for (const role of (roles || []).slice(0, 4)) {
+      const target = "https://jobright.ai/jobs/search?"
+        + `searchType=job_title&value=${encodeURIComponent(role)}&country=US`;
+      try {
+        const text = await readPublic(target);
+        ok = true;
+        const md = [...text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)]*jobright\.ai\/jobs\/info\/([^/?)#]+)[^)]*)\)/gi)];
+        md.forEach((m) => {
+          addScored(bag, {
+            id: `jobright:${m[3]}`,
+            title: m[1].replace(/\s+/g, " ").trim(),
+            company: "",
+            location: loc,
+            url: m[2].split("?")[0],
+            source: "jobright",
+            posted_at: "",
+            description: m[1],
+          }, roles, locations, days, resumeText);
+        });
+        const ids = [...text.matchAll(/jobright\.ai\/jobs\/info\/([A-Za-z0-9_-]+)/g)];
+        ids.forEach((m) => {
+          addScored(bag, {
+            id: `jobright:${m[1]}`,
+            title: role,
+            company: "",
+            location: loc,
+            url: `https://jobright.ai/jobs/info/${m[1]}`,
+            source: "jobright",
+            posted_at: "",
+            description: role,
+          }, roles, locations, days, resumeText);
+        });
+      } catch (_) {}
+    }
+    if (!ok) throw new Error("blocked");
   }
 
   function loadJobs() {
@@ -592,11 +601,9 @@
     const errors = [];
     const tasks = [
       ["Google", fromGoogle],
-      ["RemoteOK", fromRemoteOK],
-      ["Remotive", fromRemotive],
-      ["Jobicy", fromJobicy],
-      ["Arbeitnow", fromArbeitnow],
-      ["The Muse", fromMuse],
+      ["LinkedIn", fromLinkedIn],
+      ["Indeed", fromIndeed],
+      ["Jobright", fromJobright],
     ];
     await Promise.all(tasks.map(async ([name, fn]) => {
       try {

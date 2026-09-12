@@ -243,8 +243,8 @@
     const locList = s.locations && s.locations.length ? s.locations : String(s.location || "").split(/[\n,;]+/).map((x) => x.trim()).filter(Boolean);
     const locText = locList.length ? locList.join(", ") : "Not set";
     const sources = STATIC_MODE
-      ? "Google Jobs and public boards, scored on this device"
-      : "Google Jobs, LinkedIn, and the other boards — each match is scored against your resume";
+      ? "LinkedIn, Indeed, Jobright, and Google — scored on this device"
+      : "LinkedIn, Indeed, Jobright, and Google — each match is scored against your resume";
     const rows = [
       ["Resume", resume],
       ["Job titles", titles],
@@ -619,7 +619,7 @@
     $("pipeline").innerHTML = jobTable(rows);
     $("pipelineCaption").textContent = rows.length
       ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
-      : "Press Find jobs to search Google and public boards from this phone. Matches stay on the device.";
+      : "Press Find jobs to search LinkedIn, Indeed, Jobright, and Google from this phone. Matches stay on the device.";
     $("mail").innerHTML = mailTable([]);
     $("mailTableCaption").textContent = "Mail is read on a computer after you say yes and press Sync mailbox.";
     if ($("btnScout")) $("btnScout").hidden = false;
@@ -930,7 +930,7 @@
       $("pipeline").innerHTML = jobTable(rows);
       $("pipelineCaption").textContent = rows.length
         ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
-        : "Press Find jobs to search Google and public boards from this phone. Matches stay on the device.";
+        : "Press Find jobs to search LinkedIn, Indeed, Jobright, and Google from this phone. Matches stay on the device.";
       return;
     }
     const status = $("statusFilter").value;
@@ -1055,7 +1055,7 @@
       throw new Error("Save your name and at least one job title, then press Find jobs.");
     }
     updateScoutButton({ running: true }, { announce: false });
-    setSyncNote("Searching Google and public boards from this device. Your resume stays here.", true);
+    setSyncNote("Searching LinkedIn, Indeed, Jobright, and Google from this device. Your resume stays here.", true);
     const result = await scoutApi.run({
       ...setup,
       roles,
