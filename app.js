@@ -1,7 +1,6 @@
 (() => {
   const state = { track: "all", overview: null, view: "home", wizardStep: 1, excelObjectUrl: null };
   const STATIC_MODE = /\.github\.io$/i.test(location.hostname) || location.protocol === "file:";
-  const LOCAL_APP = "http://127.0.0.1:8787";
   const WIZARD_STEPS = 6;
 
   const TITLES = {
@@ -340,7 +339,7 @@
       if (lead) {
         lead.textContent = configured
           ? "Change your answers one screen at a time. Mail is never scanned unless you say so."
-          : "A few questions, one screen at a time. Your data stays on your computer.";
+          : "A few questions, one screen at a time. Answers stay on this device.";
       }
       showWizardStep(configured ? 1 : 1);
       showScreen("screen-setup");
@@ -595,7 +594,7 @@
     renderInsights(rows.length ? [{
       title: "Matches on this device",
       value: String(rows.length),
-      detail: "These came from public job boards opened in this browser. Nothing was sent to our servers.",
+      detail: "Matched on this device from public job lists. Your resume never left this browser.",
     }] : []);
     $("attention").innerHTML = jobTable(rows.slice(0, 12));
     renderCompanies(uniqueCos);
@@ -631,7 +630,7 @@
         true
       );
     } else {
-      setSyncNote("Press Find jobs to search from this phone. Results stay in this browser.", true);
+      setSyncNote("Press Find jobs to search from this device. Resume and matches stay here — we have no copy.", true);
       pingExcel();
     }
   }
@@ -860,7 +859,7 @@
   function excelUrl(excel) {
     const path = (excel && excel.url) || "/api/excel?track=main";
     if (/^(https?:|blob:)/i.test(path)) return path;
-    return STATIC_MODE ? LOCAL_APP + path : path;
+    return path;
   }
 
   function updateExcelButton(excel) {
@@ -881,6 +880,7 @@
   }
 
   async function pingExcel() {
+    if (STATIC_MODE) return;
     try {
       const data = await scoutJSON("/api/overview?track=all");
       updateExcelButton(data.excel || (data.scout && data.scout.excel));
@@ -1009,7 +1009,8 @@
 
   let scoutTimer = null;
   async function scoutJSON(path, opts) {
-    const url = STATIC_MODE ? LOCAL_APP + path : path;
+    if (STATIC_MODE) throw new Error("This page keeps data on this device only.");
+    const url = path;
     const res = await fetch(url, opts);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || res.statusText);
@@ -1050,7 +1051,7 @@
       throw new Error("Save your name and at least one job title, then press Find jobs.");
     }
     updateScoutButton({ running: true }, { announce: false });
-    setSyncNote("Searching job boards from this device. Results stay in this browser.", true);
+    setSyncNote("Searching public job lists from this device. Your resume stays here.", true);
     const result = await scoutApi.run({
       ...setup,
       roles,
@@ -1074,38 +1075,13 @@
     );
   }
 
-  async function tryLocalScout() {
-    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timer = setTimeout(() => { if (ctrl) ctrl.abort(); }, 1800);
-    try {
-      const scout = await scoutJSON("/api/scout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-        signal: ctrl ? ctrl.signal : undefined,
-      });
-      updateScoutButton(scout);
-      if (!scoutTimer) pollScout();
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   async function runScout() {
     if (STATIC_MODE) {
       try {
-        const phone = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-        if (!phone) {
-          const usedLocal = await tryLocalScout();
-          if (usedLocal) return;
-        }
         await runBrowserScout();
       } catch (err) {
         updateScoutButton({ running: false }, { announce: false });
-        setSyncNote(err.message || "Could not search from this phone.", true);
+        setSyncNote(err.message || "Could not search from this device.", true);
       }
       return;
     }
@@ -1152,6 +1128,23 @@
 
   $("btnScout").addEventListener("click", runScout);
   if ($("btnScoutInline")) $("btnScoutInline").addEventListener("click", runScout);
+  if ($("btnEraseDevice")) {
+    $("btnEraseDevice").addEventListener("click", () => {
+      const ok = window.confirm(
+        "Erase setup and job matches from this device?\n\nThis browser is the only copy. We cannot restore it."
+      );
+      if (!ok) return;
+      ["jobAutopilotSetup", "jobAutopilotJobs", "jobAutopilotScoutMeta"].forEach((k) => {
+        try { localStorage.removeItem(k); } catch (_) { /* ignore */ }
+      });
+      if (state.excelObjectUrl) {
+        URL.revokeObjectURL(state.excelObjectUrl);
+        state.excelObjectUrl = null;
+      }
+      location.hash = "#/setup";
+      location.reload();
+    });
+  }
 
   $("btnSetupCancel").addEventListener("click", () => {
     location.hash = "#/";
@@ -1216,12 +1209,16 @@
 
   function bootStatic() {
     document.body.classList.add("static-web");
+    const apis = $("optionalApisBlock");
+    if (apis) apis.hidden = true;
+    const erase = $("btnEraseDevice");
+    if (erase) erase.hidden = false;
     const note = $("pagesNote");
     const setup = setupFromStored(storedSetup());
     if (setup) state.overview = emptyOverview(setup);
     if (note) {
       note.hidden = !!setup;
-      note.textContent = "This public page never receives your data. Find jobs runs in this browser.";
+      note.textContent = "This page never receives your data. Setup and matches stay on this device.";
     }
     applyRoute().catch(() => {
       showScreen("screen-setup");

@@ -3,15 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#1b1914">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Job Autopilot">
   <title>Job Autopilot</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=phone2">
+  <link rel="stylesheet" href="styles.css?v=privacy1">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -28,7 +26,7 @@
           <li><button type="button" data-goto="5"><span class="n">05</span> Schedule</button></li>
           <li><button type="button" data-goto="6"><span class="n">06</span> Optional</button></li>
         </ol>
-        <p class="rail-foot">Private to you. All files stay on your computer. Mail is never scanned unless you say so, then press Sync yourself.</p>
+        <p class="rail-foot">Private to this device. Resume, titles, and matches never leave this phone or computer. We do not keep a copy.</p>
       </aside>
       <div class="setup-stage">
         <p class="step-index" id="setupStepIndex">01  /  06</p>
@@ -92,7 +90,7 @@
             <p class="setup-lead">Skip what you don’t have. Keys stay on your machine.</p>
             <div class="field-block">
               <h3>Contact</h3>
-              <p class="privacy-note">Optional. Saved only on this computer. Nothing is sent to Job Autopilot, GitHub, or any server we run.</p>
+              <p class="privacy-note">Optional. Saved only on this device. It is not uploaded to GitHub, Job Autopilot, or any server we run.</p>
               <div class="setup-grid">
                 <label>Email <input name="email" id="setupEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
                 <label>Phone <input name="phone" placeholder="optional"></label>
@@ -134,7 +132,7 @@
                 <label>Skip postings over this many years <input name="max_years_required" type="number" min="0" max="20" value="3"></label>
               </div>
             </div>
-            <div class="field-block">
+            <div class="field-block" id="optionalApisBlock">
               <h3>APIs <span>optional</span></h3>
               <p class="privacy-note">Leave blank to keep scoring on this computer. A key is only sent to the provider you pick, never to us.</p>
               <div class="setup-grid">
@@ -163,7 +161,7 @@
           </div>
 
           <div class="setup-actions">
-            <p class="caption" id="setupCaption">Private to this computer. We never receive your data.</p>
+            <p class="caption" id="setupCaption">Saved only on this device. We never receive your data.</p>
             <div class="setup-actions-btns">
               <button type="button" class="btn btn-ghost" id="btnSetupCancel" hidden>Back to app</button>
               <button type="button" class="btn btn-ghost" id="btnWizardBack" hidden>Back</button>
@@ -213,6 +211,7 @@
               <button class="btn" id="btnScoutInline" type="button">Run scraper now</button>
               <a class="btn btn-ghost" id="btnExcelInline" hidden href="/api/excel">Download Excel</a>
               <a class="btn btn-ghost" href="#/settings">Edit</a>
+              <button class="btn btn-ghost" id="btnEraseDevice" type="button" hidden>Erase this device</button>
             </div>
           </header>
           <div class="profile-grid" id="searchProfile"></div>
@@ -335,11 +334,11 @@
     </main>
 
     <footer>
-      Everything stays on this computer for whoever is using it. Mail is read only when that person presses Sync mailbox. We never receive a copy.
+      Everything stays on this device. We do not have accounts or a database. Mail is read only when you press Sync mailbox on your computer.
     </footer>
   </section>
 
-  <script src="browser-scout.js?v=phone2"></script>
-  <script src="app.js?v=phone2"></script>
+  <script src="browser-scout.js?v=privacy1"></script>
+  <script src="app.js?v=privacy1"></script>
 </body>
 </html>

@@ -131,7 +131,7 @@
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms || 12000);
     try {
-      const res = await fetch(url, { signal: ctrl.signal });
+      const res = await fetch(url, { signal: ctrl.signal, referrerPolicy: "no-referrer" });
       if (!res.ok) throw new Error(`${res.status}`);
       return await res.json();
     } finally {
@@ -233,76 +233,63 @@
   }
 
   async function fromRemotive(bag, roles, locations, days, resumeText) {
-    const queries = [...new Set(roles.slice(0, 3).flatMap((r) => {
-      const tks = tokens(r);
-      const bits = [String(r).trim()];
-      if (tks.length >= 2) bits.push(tks.slice(-2).join(" "));
-      if (tks.length) bits.push(tks[tks.length - 1]);
-      return bits.filter(Boolean);
-    }))].slice(0, 5);
-    for (const q of queries) {
-      const data = await getJson(`https://remotive.com/api/remote-jobs?search=${encodeURIComponent(q)}&limit=50`);
-      (data.jobs || []).forEach((row) => {
-        const posted = parseWhen(row.publication_date);
-        if (!withinLookback(posted, days)) return;
-        const job = {
-          title: row.title || "",
-          company: row.company_name || "",
-          location: row.candidate_required_location || "Remote",
-          url: row.url || row.company_logo || "",
-          source: "remotive",
-          posted_at: posted,
-          description: String(row.description || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-        };
-        if (!job.url) return;
-        if (!locationOk(job.location, locations)) return;
-        const m = matchJob(job, roles, resumeText);
-        if (!m) return;
-        pushJob(bag, {
-          ...job,
-          id: `remotive:${row.id || job.url}`,
-          match_score: m.score,
-          why: m.why,
-          track: m.role,
-          status: "new",
-          first_seen: posted || new Date().toISOString(),
-        });
+    const data = await getJson("https://remotive.com/api/remote-jobs");
+    (data.jobs || []).forEach((row) => {
+      const posted = parseWhen(row.publication_date);
+      if (!withinLookback(posted, days)) return;
+      const job = {
+        title: row.title || "",
+        company: row.company_name || "",
+        location: row.candidate_required_location || "Remote",
+        url: row.url || "",
+        source: "remotive",
+        posted_at: posted,
+        description: String(row.description || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
+      };
+      if (!job.url) return;
+      if (!locationOk(job.location, locations)) return;
+      const m = matchJob(job, roles, resumeText);
+      if (!m) return;
+      pushJob(bag, {
+        ...job,
+        id: `remotive:${row.id || job.url}`,
+        match_score: m.score,
+        why: m.why,
+        track: m.role,
+        status: "new",
+        first_seen: posted || new Date().toISOString(),
       });
-    }
+    });
   }
 
   async function fromJobicy(bag, roles, locations, days, resumeText) {
-    const tags = [...new Set(roles.flatMap((r) => tokens(r)).filter((t) => t.length > 4))].slice(0, 4);
-    const list = tags.length ? tags : ["analyst"];
-    for (const tag of list) {
-      const data = await getJson(`https://jobicy.com/api/v2/remote-jobs?count=50&tag=${encodeURIComponent(tag)}`);
-      (data.jobs || []).forEach((row) => {
-        const posted = parseWhen(row.pubDate);
-        if (!withinLookback(posted, days)) return;
-        const job = {
-          title: row.jobTitle || row.title || "",
-          company: row.companyName || "",
-          location: row.jobGeo || "Remote",
-          url: row.url || row.jobUrl || "",
-          source: "jobicy",
-          posted_at: posted,
-          description: String(row.jobExcerpt || row.jobDescription || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
-        };
-        if (!job.url) return;
-        if (!locationOk(job.location, locations)) return;
-        const m = matchJob(job, roles, resumeText);
-        if (!m) return;
-        pushJob(bag, {
-          ...job,
-          id: `jobicy:${row.id || job.url}`,
-          match_score: m.score,
-          why: m.why,
-          track: m.role,
-          status: "new",
-          first_seen: posted || new Date().toISOString(),
-        });
+    const data = await getJson("https://jobicy.com/api/v2/remote-jobs?count=100");
+    (data.jobs || []).forEach((row) => {
+      const posted = parseWhen(row.pubDate);
+      if (!withinLookback(posted, days)) return;
+      const job = {
+        title: row.jobTitle || row.title || "",
+        company: row.companyName || "",
+        location: row.jobGeo || "Remote",
+        url: row.url || row.jobUrl || "",
+        source: "jobicy",
+        posted_at: posted,
+        description: String(row.jobExcerpt || row.jobDescription || "").replace(/<[^>]+>/g, " ").slice(0, 1200),
+      };
+      if (!job.url) return;
+      if (!locationOk(job.location, locations)) return;
+      const m = matchJob(job, roles, resumeText);
+      if (!m) return;
+      pushJob(bag, {
+        ...job,
+        id: `jobicy:${row.id || job.url}`,
+        match_score: m.score,
+        why: m.why,
+        track: m.role,
+        status: "new",
+        first_seen: posted || new Date().toISOString(),
       });
-    }
+    });
   }
 
   async function fromArbeitnow(bag, roles, locations, days, resumeText) {
@@ -336,13 +323,8 @@
   }
 
   async function fromMuse(bag, roles, locations, days, resumeText) {
-    const loc = (locations[0] || "United States").trim() || "United States";
     const urls = [0, 1, 2].map((page) =>
-      `https://www.themuse.com/api/public/jobs?page=${page}&descending=true&location=${encodeURIComponent(loc)}`
-    );
-    urls.push(
-      `https://www.themuse.com/api/public/jobs?page=0&category=Data%20Science&location=${encodeURIComponent(loc)}`,
-      `https://www.themuse.com/api/public/jobs?page=0&category=Finance&location=${encodeURIComponent(loc)}`
+      `https://www.themuse.com/api/public/jobs?page=${page}&descending=true`
     );
     for (const url of urls) {
       const data = await getJson(url);
@@ -353,7 +335,7 @@
         const job = {
           title: row.name || "",
           company: (row.company && row.company.name) || "",
-          location: where || loc,
+          location: where || "",
           url: (row.refs && row.refs.landing_page) || "",
           source: "themuse",
           posted_at: posted,
