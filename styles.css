@@ -768,6 +768,22 @@ footer {
 }
 @media (max-width: 700px) {
   .setup-grid { grid-template-columns: 1fr; }
+  .top {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 10px 12px;
+  }
+  .brand { min-width: 0; flex: 1 1 140px; }
+  .brand h1 { font-size: 22px; }
+  .app-nav { width: 100%; overflow-x: auto; }
+  .top-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .top .btn, .top .btn-ghost { font-size: 14px; padding: 9px 12px; }
+  .seg { display: none; }
+  .profile-panel .filters { flex-wrap: wrap; }
+  body.static-web #resumePathWrap { display: none; }
 }
 @media (max-width: 640px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }

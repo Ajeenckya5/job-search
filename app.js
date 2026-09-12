@@ -1,5 +1,5 @@
 (() => {
-  const state = { track: "all", overview: null, view: "home", wizardStep: 1 };
+  const state = { track: "all", overview: null, view: "home", wizardStep: 1, excelObjectUrl: null };
   const STATIC_MODE = /\.github\.io$/i.test(location.hostname) || location.protocol === "file:";
   const LOCAL_APP = "http://127.0.0.1:8787";
   const WIZARD_STEPS = 6;
@@ -232,7 +232,9 @@
     const host = $("searchProfile");
     if (!host) return;
     const s = setup || {};
-    const resume = (s.resume_pdf || "").split(/[/\\]/).pop() || "Not set — click Edit";
+    const resume = s.resume_name
+      || (s.resume_pdf || "").split(/[/\\]/).pop()
+      || (s.resume_text ? "Resume saved on this phone" : "Not set — click Edit");
     const list = s.roles || [];
     const titles = !list.length
       ? "Not set — click Edit"
@@ -272,7 +274,7 @@
         </div>
         <p class="caption">${digestLine}</p>
       </div>`;
-    }).join("") || `<p class="empty">${STATIC_MODE ? "Press Find jobs to run the scraper on your computer." : "Save setup, then press Find jobs."}</p>`;
+    }).join("") || `<p class="empty">${STATIC_MODE ? "Press Find jobs to search from this phone or computer." : "Save setup, then press Find jobs."}</p>`;
   }
 
   function renderTrackNav(tracks) {
@@ -437,6 +439,7 @@
       const file = form.elements.resume_file?.files?.[0];
       const path = (form.elements.resume_pdf.value || "").trim();
       if (file || path || form.dataset.resumeOk === "1") return wizardError("");
+      if (STATIC_MODE) return wizardError("");
       return wizardError("Upload a resume or paste the file path.");
     }
     if (step === 3) {
@@ -493,6 +496,7 @@
       resume_pdf: raw.resume_pdf || "",
       resume_ok: true,
       resume_name: raw.resume_name || "",
+      resume_text: raw.resume_text || "",
       lookback_days: raw.lookback_days || 7,
       runs_per_day: raw.runs_per_day == null || raw.runs_per_day === "" ? 4 : Number(raw.runs_per_day),
       max_years_required: raw.max_years_required || 3,
@@ -532,30 +536,140 @@
     };
   }
 
+  function browserJobRows() {
+    const scout = window.JobAutopilotScout;
+    const jobs = scout && scout.loadJobs ? scout.loadJobs() : [];
+    return jobs.map((j) => ({
+      id: j.id,
+      title: j.title,
+      company: j.company,
+      url: j.url,
+      location: j.location,
+      match_score: j.match_score,
+      status: j.status || "new",
+      first_seen: j.posted_at || j.first_seen,
+      source: j.source,
+      track: j.track || "",
+    }));
+  }
+
+  function hydrateBrowserExcel(jobs) {
+    const scout = window.JobAutopilotScout;
+    if (!scout || !jobs || !jobs.length) return null;
+    if (state.excelObjectUrl) URL.revokeObjectURL(state.excelObjectUrl);
+    const blob = scout.jobsToXlsx(jobs);
+    const url = URL.createObjectURL(blob);
+    state.excelObjectUrl = url;
+    const name = (scout.loadMeta() && scout.loadMeta().name) || scout.excelName();
+    const excel = { ready: true, url, name };
+    updateExcelButton(excel);
+    return excel;
+  }
+
   function renderStaticDashboard() {
     const setup = (state.overview && state.overview.setup) || setupFromStored(storedSetup());
     if (!setup) return;
+    const rows = browserJobRows();
+    const jobs = window.JobAutopilotScout && window.JobAutopilotScout.loadJobs
+      ? window.JobAutopilotScout.loadJobs()
+      : [];
+    const meta = window.JobAutopilotScout && window.JobAutopilotScout.loadMeta
+      ? window.JobAutopilotScout.loadMeta()
+      : null;
     state.overview = emptyOverview(setup);
+    const byCo = {};
+    rows.forEach((j) => {
+      const name = j.company || "Unknown";
+      if (!byCo[name]) byCo[name] = { company: name, n: 0, waiting: 0, interviews: 0, rejected: 0 };
+      byCo[name].n += 1;
+    });
+    const uniqueCos = Object.values(byCo).sort((a, b) => b.n - a.n).slice(0, 12);
     renderProfile(setup);
     renderTrackNav([]);
     renderKpis(state.overview.kpis, state.overview.mailbox);
+    $("candidateName").textContent = (setup.candidate && setup.candidate.name) || setup.name || "Job search";
     renderFunnel(state.overview);
     stackedChart($("mailChart"), [], ["applied", "rejected", "interview"]);
-    $("mailCaption").textContent = "Mailbox reading is not available on this public page.";
+    $("mailCaption").textContent = "Mailbox reading is not available in the phone browser.";
     stackedChart($("jobsChart"), [], ["applied", "rejected", "interview"]);
-    renderInsights([]);
-    $("attention").innerHTML = jobTable([]);
-    renderCompanies([]);
-    renderTracks([]);
-    $("pipeline").innerHTML = jobTable([]);
-    $("pipelineCaption").textContent = "Applications appear when you run the search on your computer.";
+    renderInsights(rows.length ? [{
+      title: "Matches on this device",
+      value: String(rows.length),
+      detail: "These came from public job boards opened in this browser. Nothing was sent to our servers.",
+    }] : []);
+    $("attention").innerHTML = jobTable(rows.slice(0, 12));
+    renderCompanies(uniqueCos);
+    renderTracks(rows.length ? [{
+      id: "phone",
+      label: "This device",
+      funnel: 0,
+      interview: 0,
+      assessment: 0,
+      rejected: 0,
+      new: rows.length,
+      digest: {
+        generated_at: meta && meta.finished_at,
+        new_this_run: rows.length,
+        shortlist: rows.length,
+      },
+    }] : []);
+    $("pipeline").innerHTML = jobTable(rows);
+    $("pipelineCaption").textContent = rows.length
+      ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
+      : "Press Find jobs to search from this phone. Matches stay on the device.";
     $("mail").innerHTML = mailTable([]);
-    $("mailTableCaption").textContent = "Mail is read on your computer after you say yes and press Sync mailbox.";
+    $("mailTableCaption").textContent = "Mail is read on a computer after you say yes and press Sync mailbox.";
     if ($("btnScout")) $("btnScout").hidden = false;
     if ($("btnScoutInline")) $("btnScoutInline").hidden = false;
     if ($("btnSync")) $("btnSync").hidden = true;
-    setSyncNote("Press Find jobs to run the scraper on your computer. This public page never receives the results.", true);
-    pingExcel();
+    const excel = hydrateBrowserExcel(jobs);
+    if (rows.length) {
+      setSyncNote(
+        excel
+          ? `Found ${rows.length} jobs on this device. Excel is ready — tap Download Excel.`
+          : `Found ${rows.length} jobs on this device.`,
+        true
+      );
+    } else {
+      setSyncNote("Press Find jobs to search from this phone. Results stay in this browser.", true);
+      pingExcel();
+    }
+  }
+
+  function extractPdfText(buf) {
+    const raw = new TextDecoder("latin1").decode(buf);
+    const chunks = [];
+    const paren = /\((\\.|[^\\)]){4,400}\)/g;
+    let m;
+    while ((m = paren.exec(raw))) {
+      const s = m[0].slice(1, -1)
+        .replace(/\\n/g, " ")
+        .replace(/\\r/g, " ")
+        .replace(/\\t/g, " ")
+        .replace(/\\\(/g, "(")
+        .replace(/\\\)/g, ")")
+        .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+        .replace(/\\./g, "");
+      if (/[A-Za-z]{4}/.test(s)) chunks.push(s);
+      if (chunks.length > 400) break;
+    }
+    return chunks.join(" ").replace(/\s+/g, " ").trim().slice(0, 20000);
+  }
+
+  async function readResumeForStore(file) {
+    if (!file) return { name: "", text: "" };
+    const name = file.name || "resume";
+    const lower = name.toLowerCase();
+    try {
+      if (lower.endsWith(".txt") || (file.type || "").startsWith("text/")) {
+        return { name, text: (await file.text()).slice(0, 20000) };
+      }
+      if (lower.endsWith(".pdf") || file.type === "application/pdf") {
+        const buf = await file.arrayBuffer();
+        return { name, text: extractPdfText(buf) };
+      }
+    } catch (_) { /* keep the file name even if we cannot read text */ }
+    return { name, text: "" };
   }
 
   function formPayload(form) {
@@ -663,8 +777,16 @@
         payload.roles = collectRepeat("roleList");
         payload.locations = collectRepeat("locationList");
         payload.location = payload.locations.join(", ");
-        payload.resume_ok = !!(file || payload.resume_pdf);
-        payload.resume_name = file ? file.name : "";
+        const prev = storedSetup() || {};
+        payload.resume_ok = !!(file || payload.resume_pdf || prev.resume_name || prev.resume_text);
+        payload.resume_name = file ? file.name : (prev.resume_name || "");
+        payload.resume_text = prev.resume_text || "";
+        if (file) {
+          const got = await readResumeForStore(file);
+          payload.resume_name = got.name;
+          if (got.text) payload.resume_text = got.text;
+          payload.resume_ok = true;
+        }
         delete payload.llm_api_key;
         delete payload.scraper_api_key;
         delete payload.mail_password;
@@ -737,6 +859,7 @@
 
   function excelUrl(excel) {
     const path = (excel && excel.url) || "/api/excel?track=main";
+    if (/^(https?:|blob:)/i.test(path)) return path;
     return STATIC_MODE ? LOCAL_APP + path : path;
   }
 
@@ -799,8 +922,11 @@
 
   async function loadPipeline() {
     if (STATIC_MODE) {
-      $("pipeline").innerHTML = jobTable([]);
-      $("pipelineCaption").textContent = "Applications appear when you run the search on your computer.";
+      const rows = browserJobRows();
+      $("pipeline").innerHTML = jobTable(rows);
+      $("pipelineCaption").textContent = rows.length
+        ? `${rows.length} jobs found in this browser. Download Excel for the full list.`
+        : "Press Find jobs to search from this phone. Matches stay on the device.";
       return;
     }
     const status = $("statusFilter").value;
@@ -914,7 +1040,75 @@
     }
   }
 
+  async function runBrowserScout() {
+    const scoutApi = window.JobAutopilotScout;
+    if (!scoutApi) throw new Error("Scout script failed to load. Refresh and try again.");
+    const stored = storedSetup() || {};
+    const setup = (state.overview && state.overview.setup) || setupFromStored(stored) || stored;
+    const roles = (setup && setup.roles) || stored.roles || [];
+    if (!setup || !roles.length) {
+      throw new Error("Save your name and at least one job title, then press Find jobs.");
+    }
+    updateScoutButton({ running: true }, { announce: false });
+    setSyncNote("Searching job boards from this device. Results stay in this browser.", true);
+    const result = await scoutApi.run({
+      ...setup,
+      roles,
+      resume_text: setup.resume_text || stored.resume_text || "",
+    });
+    const excel = hydrateBrowserExcel(result.jobs);
+    updateScoutButton({
+      running: false,
+      finished_at: result.meta.finished_at,
+      result: { ok: true, excel },
+      excel,
+    }, { announce: false });
+    renderStaticDashboard();
+    const n = result.jobs.length;
+    const missed = (result.meta.errors || []).length;
+    setSyncNote(
+      n
+        ? `Found ${n} jobs on this device. Excel is ready — tap Download Excel.`
+        : `No matches in the last ${setup.lookback_days || 7} days from the phone boards${missed ? " (some boards were blocked)" : ""}. Try another title or a longer look-back.`,
+      true
+    );
+  }
+
+  async function tryLocalScout() {
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = setTimeout(() => { if (ctrl) ctrl.abort(); }, 1800);
+    try {
+      const scout = await scoutJSON("/api/scout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      updateScoutButton(scout);
+      if (!scoutTimer) pollScout();
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function runScout() {
+    if (STATIC_MODE) {
+      try {
+        const phone = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+        if (!phone) {
+          const usedLocal = await tryLocalScout();
+          if (usedLocal) return;
+        }
+        await runBrowserScout();
+      } catch (err) {
+        updateScoutButton({ running: false }, { announce: false });
+        setSyncNote(err.message || "Could not search from this phone.", true);
+      }
+      return;
+    }
     try {
       const scout = await scoutJSON("/api/scout", {
         method: "POST",
@@ -924,10 +1118,6 @@
       updateScoutButton(scout);
       if (!scoutTimer) pollScout();
     } catch (err) {
-      if (STATIC_MODE) {
-        setSyncNote("Find jobs runs on this computer. Start the local app first: python3 autopilot.py dashboard — then press Find jobs again.", true);
-        return;
-      }
       setSyncNote(err.message, true);
     }
   }
@@ -1025,12 +1215,13 @@
   $("mailLinked").addEventListener("change", loadMail);
 
   function bootStatic() {
+    document.body.classList.add("static-web");
     const note = $("pagesNote");
     const setup = setupFromStored(storedSetup());
     if (setup) state.overview = emptyOverview(setup);
     if (note) {
       note.hidden = !!setup;
-      note.textContent = "This public page never receives your data. Answers stay in this browser.";
+      note.textContent = "This public page never receives your data. Find jobs runs in this browser.";
     }
     applyRoute().catch(() => {
       showScreen("screen-setup");

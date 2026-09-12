@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=excel3">
+  <link rel="stylesheet" href="styles.css?v=phone1">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -50,9 +50,9 @@
             <label class="file-drop wide">
               <input name="resume_file" type="file" accept=".pdf,.txt,.doc,.docx,application/pdf">
               <span class="file-drop-ui" id="fileDropLabel">Drop a PDF here, or browse</span>
-              <span class="file-hint" id="resumeHint">PDF preferred. You can also paste a path below.</span>
+              <span class="file-hint" id="resumeHint">PDF or TXT. On a phone, pick the file from Files or Drive.</span>
             </label>
-            <div class="setup-grid">
+            <div class="setup-grid" id="resumePathWrap">
               <label class="wide">Or paste the full path <input name="resume_pdf" placeholder="/Users/you/Downloads/resume.pdf"></label>
             </div>
           </div>
@@ -84,7 +84,7 @@
             <div class="setup-grid">
               <label class="wide">Custom times per day <input name="runs_per_day" type="number" min="0" max="24" value="4"></label>
             </div>
-            <p class="file-hint">0 means only when you press Find jobs. 1–24 also run on a timer on your computer.</p>
+            <p class="file-hint">0 means only when you press Find jobs. A timer needs the app running on a computer. On a phone, press Find jobs whenever you want.</p>
           </div>
 
           <div class="wizard-step" data-step="6">
@@ -339,6 +339,7 @@
     </footer>
   </section>
 
-  <script src="app.js?v=excel3"></script>
+  <script src="browser-scout.js?v=phone1"></script>
+  <script src="app.js?v=phone1"></script>
 </body>
 </html>
