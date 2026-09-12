@@ -716,7 +716,8 @@
         btn.textContent = id === "btnScoutInline" ? "Run scraper now" : "Find jobs";
       }
     });
-    updateExcelButton((scout && scout.excel) || (scout && scout.result && scout.result.excel));
+    const excel = (scout && scout.excel) || (scout && scout.result && scout.result.excel);
+    if (!excel || excel.ready) updateExcelButton(excel);
     const announce = !opts || opts.announce !== false;
     if (!announce) return;
     if (scout && scout.running) {
@@ -724,7 +725,7 @@
     } else if (scout && scout.error) {
       setSyncNote(`Job search failed: ${scout.error}`, true);
     } else if (scout && scout.result && scout.finished_at) {
-      const ready = scout.excel && scout.excel.ready;
+      const ready = !!(excel && excel.ready);
       setSyncNote(
         ready
           ? "Job search finished. Excel is ready — click Download Excel."
@@ -741,6 +742,10 @@
 
   function updateExcelButton(excel) {
     const ready = !!(excel && excel.ready);
+    if (!ready) {
+      const current = $("btnExcel");
+      if (current && !current.hidden) return;
+    }
     ["btnExcel", "btnExcelInline"].forEach((id) => {
       const btn = $(id);
       if (!btn) return;
