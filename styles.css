@@ -127,6 +127,7 @@ body {
 a.btn:hover { text-decoration: none; }
 .btn:hover { background: #163249; }
 .btn:disabled { opacity: 0.55; cursor: wait; }
+[hidden] { display: none !important; }
 .btn.busy::after { content: "…"; }
 .btn-ghost {
   background: transparent;
