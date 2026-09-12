@@ -199,7 +199,15 @@
   function pushJob(bag, job) {
     const url = job.url || "";
     const key = url || `${job.company}|${job.title}`.toLowerCase();
-    if (!job.title || bag.has(key)) return;
+    if (!job.title) return;
+    const prev = bag.get(key);
+    if (prev) {
+      if (job.search_query && !prev.search_query) prev.search_query = job.search_query;
+      if (job.source === "google" && prev.source !== "google") {
+        prev.search_query = prev.search_query || job.search_query || "";
+      }
+      return;
+    }
     bag.set(key, job);
   }
 
@@ -435,7 +443,6 @@
     const q = String(query || "").trim() || defaultGoogleQuery(roles, locations);
     if (!q) throw new Error("Type a Google search string.");
     let ok = false;
-    const before = bag.size;
     try {
       const gtext = await readPublic(
         "https://www.google.com/search?q=" + encodeURIComponent(q) + "&udm=8&hl=en&gl=us"
@@ -443,22 +450,20 @@
       ingestGoogleRows(bag, parseGoogleJobsText(gtext), roles, resumeText, q);
       ok = true;
     } catch (_) {}
-    if (bag.size - before < 3) {
-      try {
-        const target = "http://html.duckduckgo.com/html/?q=" + encodeURIComponent(q);
-        const text = await readPublic(target);
-        const rows = /result__a/.test(text) ? parseDdgHtml(text) : parseDdgMarkdown(text);
-        ingestGoogleRows(
-          bag,
-          rows.filter((row) => isPostingUrl(String(row.href || ""))),
-          roles,
-          resumeText,
-          q
-        );
-        ok = true;
-      } catch (_) {}
-    }
-    if (!ok && bag.size === before) throw new Error("blocked");
+    try {
+      const target = "http://html.duckduckgo.com/html/?q=" + encodeURIComponent(q);
+      const text = await readPublic(target);
+      const rows = /result__a/.test(text) ? parseDdgHtml(text) : parseDdgMarkdown(text);
+      ingestGoogleRows(
+        bag,
+        rows.filter((row) => isPostingUrl(String(row.href || ""))),
+        roles,
+        resumeText,
+        q
+      );
+      ok = true;
+    } catch (_) {}
+    if (!ok) throw new Error("blocked");
   }
 
   function addScored(bag, job, roles, locations, days, resumeText) {
