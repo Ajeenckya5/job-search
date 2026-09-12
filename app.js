@@ -501,8 +501,9 @@
     }
     toggleAdzuna();
     toggleImapHost();
-    const consent = status && status.mail_enabled ? "yes" : "no";
-    setMailConsent(consent, { fromEmail: Boolean((c.email || "").trim()) });
+    const raw = status && status.mail_scan_consent;
+    const yes = !STATIC_MODE && (raw === true || /^(yes|true|1|on)$/i.test(String(raw || "")));
+    setMailConsent(yes ? "yes" : "no", { fromEmail: Boolean((c.email || "").trim()) });
   }
 
   function toggleAdzuna() {
