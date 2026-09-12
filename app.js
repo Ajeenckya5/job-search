@@ -382,6 +382,12 @@
 
   function showWizardStep(step) {
     state.wizardStep = Math.max(1, Math.min(WIZARD_STEPS, step));
+    const frame = document.querySelector(".setup-frame");
+    if (frame) frame.dataset.step = String(state.wizardStep);
+    const idx = $("setupStepIndex");
+    if (idx) {
+      idx.textContent = `${String(state.wizardStep).padStart(2, "0")}  /  ${String(WIZARD_STEPS).padStart(2, "0")}`;
+    }
     document.querySelectorAll(".wizard-step").forEach((el) => {
       el.classList.toggle("is-on", Number(el.dataset.step) === state.wizardStep);
     });
@@ -394,8 +400,17 @@
     $("btnWizardBack").hidden = state.wizardStep === 1;
     $("btnWizardNext").hidden = last;
     $("btnSetupSave").hidden = !last;
-    const focus = document.querySelector(`.wizard-step.is-on input, .wizard-step.is-on textarea, .wizard-step.is-on select`);
+    const focus = document.querySelector(`.wizard-step.is-on input:not([type="file"]), .wizard-step.is-on textarea, .wizard-step.is-on select`);
     if (focus) focus.focus();
+  }
+
+  function syncCadence(n) {
+    const value = Number(n) || 4;
+    const input = document.querySelector('[name="runs_per_day"]');
+    if (input) input.value = value;
+    document.querySelectorAll("#cadenceChoices [data-runs]").forEach((btn) => {
+      btn.classList.toggle("is-on", Number(btn.dataset.runs) === value);
+    });
   }
 
   function wizardError(msg) {
@@ -475,6 +490,7 @@
     });
     fillRepeatList("roleList", "Software Engineer", roleValues.length ? roleValues : [""]);
     fillRepeatList("locationList", "City, state, Remote, or United States", locValues.length ? locValues : ["United States"]);
+    syncCadence((status && status.runs_per_day) || form.elements.runs_per_day?.value || 4);
     form.dataset.resumeOk = status && (status.resume_ok || status.resume_name) ? "1" : "";
     if (status && (status.resume_ok || status.resume_name)) {
       $("resumeHint").textContent = status.resume_name
@@ -710,6 +726,19 @@
   $("btnWizardBack").addEventListener("click", () => showWizardStep(state.wizardStep - 1));
   $("btnAddRole").addEventListener("click", () => addRepeatRow("roleList", "Software Engineer"));
   $("btnAddLocation").addEventListener("click", () => addRepeatRow("locationList", "City, state, Remote, or United States"));
+  document.querySelectorAll("#cadenceChoices [data-runs]").forEach((btn) => {
+    btn.addEventListener("click", () => syncCadence(btn.dataset.runs));
+  });
+  const runsInput = document.querySelector('[name="runs_per_day"]');
+  if (runsInput) runsInput.addEventListener("input", () => syncCadence(runsInput.value));
+  const resumeFile = document.querySelector('[name="resume_file"]');
+  if (resumeFile) {
+    resumeFile.addEventListener("change", () => {
+      const name = resumeFile.files?.[0]?.name;
+      const ui = $("fileDropLabel");
+      if (ui) ui.textContent = name || "Drop a PDF here, or browse";
+    });
+  }
   document.querySelectorAll("#wizardProgress button").forEach((btn) => {
     btn.addEventListener("click", () => {
       const dest = Number(btn.dataset.goto);
