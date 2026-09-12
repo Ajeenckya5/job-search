@@ -489,6 +489,34 @@ input:focus {
   box-shadow: inset 0 -2px 0 var(--copper);
 }
 .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.google-search {
+  display: flex;
+  min-width: 200px;
+  flex: 1 1 240px;
+  max-width: 380px;
+}
+.google-search input {
+  width: 100%;
+  border: 1px solid rgba(247, 241, 230, 0.28);
+  background: rgba(247, 241, 230, 0.1);
+  color: var(--cream);
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  border-radius: 0;
+}
+.google-search input::placeholder { color: #a89c8c; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .top .btn {
   background: var(--cream);
   color: var(--ink);

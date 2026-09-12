@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Job Autopilot">
   <title>Job Autopilot</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=google4">
+  <link rel="stylesheet" href="styles.css?v=google5">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -190,6 +190,10 @@
         <div class="seg" id="trackSeg" role="tablist" aria-label="Track">
           <button class="seg-btn is-on" data-track="all" type="button">All</button>
         </div>
+        <label class="google-search">
+          <span class="visually-hidden">Google search</span>
+          <input id="googleQuery" type="search" placeholder="Google search — type a string" autocomplete="off" spellcheck="false">
+        </label>
         <button class="btn" id="btnScout" type="button" title="Search LinkedIn, Indeed, Jobright, and Google now">Find jobs</button>
         <a class="btn" id="btnExcel" hidden href="/api/excel">Download Excel</a>
         <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
@@ -338,7 +342,7 @@
     </footer>
   </section>
 
-  <script src="browser-scout.js?v=google4"></script>
-  <script src="app.js?v=google4"></script>
+  <script src="browser-scout.js?v=google5"></script>
+  <script src="app.js?v=google5"></script>
 </body>
 </html>

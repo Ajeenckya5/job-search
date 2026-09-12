@@ -89,7 +89,7 @@
   }
 
   function jobsToXlsx(jobs) {
-    const headers = ["Status", "Score", "Title", "Company", "Location", "Source", "Posted", "URL", "Why"];
+    const headers = ["Status", "Score", "Title", "Company", "Location", "Source", "Search", "Posted", "URL", "Why"];
     const rows = [headers].concat((jobs || []).map((j) => [
       j.status || "new",
       String(j.match_score || ""),
@@ -97,6 +97,7 @@
       j.company || "",
       j.location || "",
       j.source || "",
+      j.search_query || "",
       (j.posted_at || j.first_seen || "").slice(0, 10),
       j.url || "",
       j.why || "",
@@ -339,30 +340,81 @@
         snip: loc,
       });
     }
-    return rows.slice(0, 15);
+    return rows.slice(0, 20);
   }
 
-  function ingestSearchRows(bag, rows, roles, locations, resumeText) {
+  function parseGoogleJobsHtml(html) {
+    const rows = [];
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      doc.querySelectorAll("div.EimVGf, div[data-share-url]").forEach((el) => {
+        const title = ((el.querySelector(".tNxQIb") || {}).textContent || "").trim();
+        const company = ((el.querySelector(".a3jPc") || {}).textContent || "").trim();
+        const locLine = ((el.querySelector(".FqK3wc") || {}).textContent || "").trim();
+        const share = el.getAttribute("data-share-url") || "";
+        if (!title || title.length < 4) return;
+        rows.push({
+          title,
+          company,
+          location: locLine.replace(/\s+via\s+.*/i, "").replace(/[•·]/g, " ").trim(),
+          href: share,
+          snip: locLine,
+        });
+      });
+    } catch (_) {}
+    return rows;
+  }
+
+  function parseGoogleJobsText(text) {
+    if (/unusual traffic|captcha/i.test(text || "")) return [];
+    const fromHtml = parseGoogleJobsHtml(text);
+    if (fromHtml.length) return fromHtml;
+    return parseGoogleMarkdown(text);
+  }
+
+  function defaultGoogleQuery(roles, locations) {
+    const role = String((roles && roles[0]) || "jobs").trim();
+    const loc = String((locations && locations[0]) || "United States").trim();
+    if (!role) return loc ? `jobs ${loc}` : "jobs";
+    if (/job/i.test(role)) return loc ? `${role} ${loc}` : role;
+    return loc ? `${role} jobs ${loc}` : `${role} jobs`;
+  }
+
+  function scoreQuery(job, query, resumeText, roles) {
+    const blob = `${job.title || ""} ${job.company || ""} ${job.description || ""}`.toLowerCase();
+    const qToks = tokens(query);
+    const hits = qToks.filter((t) => blob.includes(t));
+    const resumeHits = tokens(resumeText).slice(0, 80).filter((t) => blob.includes(t)).length;
+    const score = Math.max(18, Math.min(99, 24 + hits.length * 10 + Math.min(24, resumeHits * 2)));
+    return { score, why: query || hits.join(", "), role: (roles && roles[0]) || query || "Google" };
+  }
+
+  function ingestGoogleRows(bag, rows, roles, resumeText, query) {
     (rows || []).forEach((row) => {
-      const url = String(row.href || "").split("&rut=")[0];
-      if (!url || /duckduckgo\.com|\/y\.js/i.test(url)) return;
-      if (!isPostingUrl(url)) return;
-      const split = row.title
-        ? { title: row.title, company: row.company || "" }
-        : splitHeading(row.heading);
-      if (!split.title || isListingTitle(split.title) || isListingTitle(row.heading)) return;
-      const source = sourceFromUrl(url);
+      let title = String(row.title || "").trim();
+      let company = String(row.company || "").trim();
+      if (!title) {
+        const split = splitHeading(row.heading);
+        title = split.title;
+        company = company || split.company;
+      }
+      if (!title || isListingTitle(title)) return;
+      let url = String(row.href || "").split("&rut=")[0];
+      if (!url || /duckduckgo\.com|\/y\.js/i.test(url)) {
+        url = "https://www.google.com/search?q=" + encodeURIComponent(`${title} ${company} ${query}`.trim()) + "&udm=8";
+      }
       const job = {
-        title: split.title,
-        company: split.company,
+        title,
+        company,
         location: row.location || "",
         url,
-        source,
+        source: "google",
+        search_query: query,
         posted_at: "",
-        description: String(row.snip || row.heading || "").slice(0, 1200),
+        description: String(row.snip || row.heading || title).slice(0, 1200),
       };
-      const m = matchJob(job, roles, resumeText);
-      if (!m) return;
+      const m = matchJob(job, (roles && roles.length) ? roles : [query], resumeText)
+        || scoreQuery(job, query, resumeText, roles);
       pushJob(bag, {
         ...job,
         id: `google:${url}`,
@@ -375,38 +427,38 @@
     });
   }
 
-  async function fromGoogle(bag, roles, locations, days, resumeText) {
-    const loc = (locations && locations[0]) || "United States";
-    const slice = (roles || []).slice(0, 4);
-    const queries = [];
-    slice.forEach((role) => {
-      queries.push(`${role} jobs ${loc} site:linkedin.com/jobs/view`);
-      queries.push(`${role} jobs ${loc} site:indeed.com/viewjob`);
-      queries.push(`${role} jobs ${loc} site:jobright.ai/jobs/info`);
-    });
-    const uniq = [...new Set(queries)].slice(0, 10);
+  function ingestSearchRows(bag, rows, roles, locations, resumeText) {
+    ingestGoogleRows(bag, rows, roles, resumeText, defaultGoogleQuery(roles, locations));
+  }
+
+  async function fromGoogle(bag, roles, locations, days, resumeText, query) {
+    const q = String(query || "").trim() || defaultGoogleQuery(roles, locations);
+    if (!q) throw new Error("Type a Google search string.");
     let ok = false;
-    for (let i = 0; i < uniq.length; i += 3) {
-      await Promise.all(uniq.slice(i, i + 3).map(async (q) => {
-        try {
-          const target = "http://html.duckduckgo.com/html/?q=" + encodeURIComponent(q);
-          const text = await readPublic(target);
-          const rows = /result__a/.test(text) ? parseDdgHtml(text) : parseDdgMarkdown(text);
-          ingestSearchRows(bag, rows, roles, locations, resumeText);
-          ok = true;
-        } catch (_) {}
-      }));
-    }
-    if (slice[0]) {
+    const before = bag.size;
+    try {
+      const gtext = await readPublic(
+        "https://www.google.com/search?q=" + encodeURIComponent(q) + "&udm=8&hl=en&gl=us"
+      );
+      ingestGoogleRows(bag, parseGoogleJobsText(gtext), roles, resumeText, q);
+      ok = true;
+    } catch (_) {}
+    if (bag.size - before < 3) {
       try {
-        const gtext = await readPublic(
-          "https://www.google.com/search?q=" + encodeURIComponent(`${slice[0]} jobs ${loc}`) + "&udm=8&hl=en&gl=us"
+        const target = "http://html.duckduckgo.com/html/?q=" + encodeURIComponent(q);
+        const text = await readPublic(target);
+        const rows = /result__a/.test(text) ? parseDdgHtml(text) : parseDdgMarkdown(text);
+        ingestGoogleRows(
+          bag,
+          rows.filter((row) => isPostingUrl(String(row.href || ""))),
+          roles,
+          resumeText,
+          q
         );
-        ingestSearchRows(bag, parseGoogleMarkdown(gtext), roles, locations, resumeText);
         ok = true;
       } catch (_) {}
     }
-    if (!ok) throw new Error("blocked");
+    if (!ok && bag.size === before) throw new Error("blocked");
   }
 
   function addScored(bag, job, roles, locations, days, resumeText) {
@@ -611,15 +663,18 @@
       : String((setup && setup.location) || "United States").split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
     const days = Math.max(14, Number((setup && setup.lookback_days) || 7));
     const resumeText = (setup && setup.resume_text) || "";
-    if (!roles.length) throw new Error("Add at least one job title, then press Find jobs.");
+    const googleQuery = String((setup && setup.google_query) || "").trim();
+    if (!roles.length && !googleQuery) throw new Error("Type a Google search, or save a job title, then press Find jobs.");
     const bag = new Map();
     const errors = [];
-    const tasks = [
-      ["Google", fromGoogle],
-      ["LinkedIn", fromLinkedIn],
-      ["Indeed", fromIndeed],
-      ["Jobright", fromJobright],
-    ];
+    const tasks = [["Google", (b, r, l, d, t) => fromGoogle(b, r, l, d, t, googleQuery)]];
+    if (roles.length) {
+      tasks.push(
+        ["LinkedIn", fromLinkedIn],
+        ["Indeed", fromIndeed],
+        ["Jobright", fromJobright],
+      );
+    }
     await Promise.all(tasks.map(async ([name, fn]) => {
       try {
         await fn(bag, roles, locations, days, resumeText);

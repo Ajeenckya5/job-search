@@ -187,7 +187,7 @@
         <td>${j.match_score || "—"}</td>
         <td class="muted">${fmtDate(j.first_seen)}</td>
         <td>${mail}</td>
-        <td>${j.source ? `<span class="muted">${escapeHtml(j.source)}</span>` : ""}</td>
+        <td>${j.source ? `<span class="muted">${escapeHtml(j.source)}</span>` : ""}${j.search_query ? `<div class="muted">${escapeHtml(j.search_query)}</div>` : ""}</td>
       </tr>`;
     }).join("");
     return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -355,6 +355,7 @@
     showView(view);
     document.title = `${TITLES[view]} · Job Autopilot`;
     if (STATIC_MODE) renderStaticDashboard();
+    fillGoogleQuery((state.overview && state.overview.setup) || setupFromStored(storedSetup()));
   }
 
   function collectRepeat(listId) {
@@ -552,6 +553,7 @@
       status: j.status || "new",
       first_seen: j.posted_at || j.first_seen,
       source: j.source,
+      search_query: j.search_query,
       track: j.track || "",
     }));
   }
@@ -1045,21 +1047,62 @@
     }
   }
 
+  function googleQueryValue() {
+    const el = $("googleQuery");
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function persistGoogleQuery(q) {
+    const val = String(q || "").trim();
+    try {
+      if (val) localStorage.setItem("jobAutopilotGoogleQuery", val);
+      else localStorage.removeItem("jobAutopilotGoogleQuery");
+    } catch (_) {}
+    const el = $("googleQuery");
+    if (el && el.value.trim() !== val) el.value = val;
+  }
+
+  function fillGoogleQuery(setup) {
+    const el = $("googleQuery");
+    if (!el) return;
+    let stored = "";
+    try { stored = String(localStorage.getItem("jobAutopilotGoogleQuery") || "").trim(); } catch (_) {}
+    if (stored) {
+      el.value = stored;
+      return;
+    }
+    if (el.value.trim()) return;
+    const roles = (setup && setup.roles) || [];
+    const locs = (setup && setup.locations) || [];
+    const loc = locs[0] || (setup && setup.location) || "United States";
+    const role = roles[0] || "";
+    if (!role) return;
+    el.value = /job/i.test(role) ? `${role} ${loc}`.trim() : `${role} jobs ${loc}`.trim();
+  }
+
   async function runBrowserScout() {
     const scoutApi = window.JobAutopilotScout;
     if (!scoutApi) throw new Error("Scout script failed to load. Refresh and try again.");
     const stored = storedSetup() || {};
     const setup = (state.overview && state.overview.setup) || setupFromStored(stored) || stored;
     const roles = (setup && setup.roles) || stored.roles || [];
-    if (!setup || !roles.length) {
-      throw new Error("Save your name and at least one job title, then press Find jobs.");
+    const googleQuery = googleQueryValue();
+    persistGoogleQuery(googleQuery);
+    if (!setup || (!roles.length && !googleQuery)) {
+      throw new Error("Type a Google search, or save a job title, then press Find jobs.");
     }
     updateScoutButton({ running: true }, { announce: false });
-    setSyncNote("Searching LinkedIn, Indeed, Jobright, and Google from this device. Your resume stays here.", true);
+    setSyncNote(
+      googleQuery
+        ? `Searching Google for “${googleQuery}”, then LinkedIn, Indeed, and Jobright. Your resume stays here.`
+        : "Searching LinkedIn, Indeed, Jobright, and Google from this device. Your resume stays here.",
+      true
+    );
     const result = await scoutApi.run({
       ...setup,
       roles,
-      resume_text: setup.resume_text || stored.resume_text || "",
+      google_query: googleQuery,
+      resume_text: (setup && setup.resume_text) || stored.resume_text || "",
     });
     const excel = hydrateBrowserExcel(result.jobs);
     updateScoutButton({
@@ -1093,7 +1136,7 @@
       const scout = await scoutJSON("/api/scout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({ google_query: googleQueryValue() }),
       });
       updateScoutButton(scout);
       if (!scoutTimer) pollScout();
@@ -1132,13 +1175,22 @@
 
   $("btnScout").addEventListener("click", runScout);
   if ($("btnScoutInline")) $("btnScoutInline").addEventListener("click", runScout);
+  if ($("googleQuery")) {
+    $("googleQuery").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        runScout();
+      }
+    });
+    $("googleQuery").addEventListener("change", () => persistGoogleQuery(googleQueryValue()));
+  }
   if ($("btnEraseDevice")) {
     $("btnEraseDevice").addEventListener("click", () => {
       const ok = window.confirm(
         "Erase setup and job matches from this device?\n\nThis browser is the only copy. We cannot restore it."
       );
       if (!ok) return;
-      ["jobAutopilotSetup", "jobAutopilotJobs", "jobAutopilotScoutMeta"].forEach((k) => {
+      ["jobAutopilotSetup", "jobAutopilotJobs", "jobAutopilotScoutMeta", "jobAutopilotGoogleQuery"].forEach((k) => {
         try { localStorage.removeItem(k); } catch (_) { /* ignore */ }
       });
       if (state.excelObjectUrl) {
