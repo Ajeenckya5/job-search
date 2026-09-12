@@ -28,7 +28,7 @@ jobs:
       - name: Package site
         run: |
           mkdir _site
-          cp index.html app.js styles.css favicon.svg 404.html _site/
+          cp index.html app.js styles.css favicon.svg 404.html browser-scout.js _site/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
