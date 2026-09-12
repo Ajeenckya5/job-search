@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=dash1">
+  <link rel="stylesheet" href="styles.css?v=scout1">
 </head>
 <body>
   <section class="screen is-on" id="screen-setup">
@@ -73,16 +73,18 @@
 
           <div class="wizard-step" data-step="5">
             <h2>How often?</h2>
-            <p class="setup-lead">How many times a day the desk should look for new postings.</p>
+            <p class="setup-lead">You can always press Find jobs to scrape by hand. A schedule is optional.</p>
             <div class="choice-row" id="cadenceChoices">
+              <button type="button" data-runs="0">I’ll run it myself</button>
               <button type="button" data-runs="1">Once</button>
               <button type="button" data-runs="2">Twice</button>
               <button type="button" data-runs="4" class="is-on">Four</button>
               <button type="button" data-runs="8">Eight</button>
             </div>
             <div class="setup-grid">
-              <label class="wide">Custom times per day <input name="runs_per_day" type="number" min="1" max="24" value="4"></label>
+              <label class="wide">Custom times per day <input name="runs_per_day" type="number" min="0" max="24" value="4"></label>
             </div>
+            <p class="file-hint">0 means only when you press Find jobs. 1–24 also run on a timer on your computer.</p>
           </div>
 
           <div class="wizard-step" data-step="6">
@@ -190,7 +192,7 @@
         <div class="seg" id="trackSeg" role="tablist" aria-label="Track">
           <button class="seg-btn is-on" data-track="all" type="button">All</button>
         </div>
-        <button class="btn" id="btnScout" type="button">Find jobs</button>
+        <button class="btn" id="btnScout" type="button" title="Run the job scraper now">Find jobs</button>
         <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
         <a class="btn btn-ghost" id="btnSetup" href="#/settings">Resume &amp; search</a>
       </div>
@@ -206,7 +208,10 @@
               <h2>Resume, titles, and location</h2>
               <p>These are the answers used when you click Find jobs.</p>
             </div>
-            <a class="btn btn-ghost" href="#/settings">Edit</a>
+            <div class="filters">
+              <button class="btn" id="btnScoutInline" type="button">Run scraper now</button>
+              <a class="btn btn-ghost" href="#/settings">Edit</a>
+            </div>
           </header>
           <div class="profile-grid" id="searchProfile"></div>
         </section>
@@ -332,6 +337,6 @@
     </footer>
   </section>
 
-  <script src="app.js?v=dash1"></script>
+  <script src="app.js?v=scout1"></script>
 </body>
 </html>

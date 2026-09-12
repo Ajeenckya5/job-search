@@ -1,6 +1,7 @@
 (() => {
   const state = { track: "all", overview: null, view: "home", wizardStep: 1 };
   const STATIC_MODE = /\.github\.io$/i.test(location.hostname) || location.protocol === "file:";
+  const LOCAL_APP = "http://127.0.0.1:8787";
   const WIZARD_STEPS = 6;
 
   const TITLES = {
@@ -245,7 +246,7 @@
       ["Job titles", titles],
       ["Locations", locText],
       ["Look back", `${s.lookback_days || "—"} days of postings`],
-      ["Schedule", `${s.runs_per_day || "—"} times per day`],
+      ["Schedule", Number(s.runs_per_day) > 0 ? `${s.runs_per_day} times per day` : "Manual — press Find jobs"],
     ];
     host.innerHTML = rows.map(([k, v]) => `
       <div class="profile-item">
@@ -259,7 +260,7 @@
       const d = t.digest;
       const digestLine = d
         ? `Latest scout ${fmtWhen(d.generated_at)} · ${fmt(d.new_this_run)} new · ${fmt(d.shortlist)} on the shortlist`
-        : "No recent scout yet — click Find jobs";
+        : "No recent scout yet — press Find jobs to scrape now";
       return `<div class="track-card">
         <h3>${escapeHtml(t.label)}</h3>
         <div class="mini">
@@ -271,7 +272,7 @@
         </div>
         <p class="caption">${digestLine}</p>
       </div>`;
-    }).join("") || `<p class="empty">${STATIC_MODE ? "Job search runs on your computer." : "Save setup, then click Find jobs."}</p>`;
+    }).join("") || `<p class="empty">${STATIC_MODE ? "Press Find jobs to run the scraper on your computer." : "Save setup, then press Find jobs."}</p>`;
   }
 
   function renderTrackNav(tracks) {
@@ -411,7 +412,8 @@
   }
 
   function syncCadence(n) {
-    const value = Number(n) || 4;
+    const parsed = Number(n);
+    const value = Number.isFinite(parsed) ? parsed : 4;
     const input = document.querySelector('[name="runs_per_day"]');
     if (input) input.value = value;
     document.querySelectorAll("#cadenceChoices [data-runs]").forEach((btn) => {
@@ -448,7 +450,7 @@
     }
     if (step === 5) {
       const n = Number(form.elements.runs_per_day.value);
-      return wizardError(n >= 1 && n <= 24 ? "" : "Enter how many times a day, from 1 to 24.");
+      return wizardError(Number.isFinite(n) && n >= 0 && n <= 24 ? "" : "Enter 0 to run only by hand, or 1 to 24 times a day.");
     }
     return wizardError("");
   }
@@ -492,7 +494,7 @@
       resume_ok: true,
       resume_name: raw.resume_name || "",
       lookback_days: raw.lookback_days || 7,
-      runs_per_day: raw.runs_per_day || 4,
+      runs_per_day: raw.runs_per_day == null || raw.runs_per_day === "" ? 4 : Number(raw.runs_per_day),
       max_years_required: raw.max_years_required || 3,
       llm_provider: raw.llm_provider || "gemini",
       scraper_type: raw.scraper_type || "none",
@@ -549,9 +551,10 @@
     $("pipelineCaption").textContent = "Applications appear when you run the search on your computer.";
     $("mail").innerHTML = mailTable([]);
     $("mailTableCaption").textContent = "Mail is read on your computer after you say yes and press Sync mailbox.";
-    if ($("btnScout")) $("btnScout").hidden = true;
+    if ($("btnScout")) $("btnScout").hidden = false;
+    if ($("btnScoutInline")) $("btnScoutInline").hidden = false;
     if ($("btnSync")) $("btnSync").hidden = true;
-    setSyncNote("This is your desk. Searching boards and reading mail run on your computer — this public page never receives that data.", true);
+    setSyncNote("Press Find jobs to run the scraper on your computer. This public page never receives the results.", true);
   }
 
   function formPayload(form) {
@@ -577,7 +580,7 @@
       linkedin: c.linkedin,
       resume_pdf: status && status.resume_pdf,
       lookback_days: (status && status.lookback_days) || 7,
-      runs_per_day: (status && status.runs_per_day) || 4,
+      runs_per_day: status && status.runs_per_day != null && status.runs_per_day !== "" ? status.runs_per_day : 4,
       max_years_required: (status && status.max_years_required) || 3,
       llm_provider: (status && status.llm_provider) || "gemini",
       scraper_type: status && status.scraper_type && status.scraper_type !== "none" ? status.scraper_type : "none",
@@ -589,7 +592,9 @@
     });
     fillRepeatList("roleList", "Software Engineer", roleValues.length ? roleValues : [""]);
     fillRepeatList("locationList", "City, state, Remote, or United States", locValues.length ? locValues : ["United States"]);
-    syncCadence((status && status.runs_per_day) || form.elements.runs_per_day?.value || 4);
+    syncCadence(status && status.runs_per_day != null && status.runs_per_day !== ""
+      ? status.runs_per_day
+      : (form.elements.runs_per_day?.value || 4));
     form.dataset.resumeOk = status && (status.resume_ok || status.resume_name) ? "1" : "";
     if (status && (status.resume_ok || status.resume_name)) {
       $("resumeHint").textContent = status.resume_name
@@ -696,25 +701,26 @@
   }
 
   function updateScoutButton(scout) {
-    const btn = $("btnScout");
-    if (!btn) return;
-    if (STATIC_MODE) {
-      btn.hidden = true;
-      return;
-    }
-    if (scout && scout.running) {
-      btn.disabled = true;
-      btn.classList.add("busy");
-      btn.textContent = "Finding jobs";
-      setSyncNote("Searching boards and scoring against your resume. This can take several minutes.", true);
-    } else {
-      btn.disabled = false;
-      btn.classList.remove("busy");
-      btn.textContent = "Find jobs";
-      if (scout && scout.error) setSyncNote(`Job search failed: ${scout.error}`, true);
-      else if (scout && scout.result && scout.finished_at) {
-        setSyncNote("Job search finished. The ledger and shortlist are updated.", true);
+    ["btnScout", "btnScoutInline"].forEach((id) => {
+      const btn = $(id);
+      if (!btn) return;
+      btn.hidden = false;
+      if (scout && scout.running) {
+        btn.disabled = true;
+        btn.classList.add("busy");
+        btn.textContent = id === "btnScoutInline" ? "Scraping…" : "Finding jobs";
+      } else {
+        btn.disabled = false;
+        btn.classList.remove("busy");
+        btn.textContent = id === "btnScoutInline" ? "Run scraper now" : "Find jobs";
       }
+    });
+    if (scout && scout.running) {
+      setSyncNote("Searching boards and scoring against your resume. This can take several minutes.", true);
+    } else if (scout && scout.error) {
+      setSyncNote(`Job search failed: ${scout.error}`, true);
+    } else if (scout && scout.result && scout.finished_at) {
+      setSyncNote("Job search finished. The ledger and shortlist are updated.", true);
     }
   }
 
@@ -830,13 +836,47 @@
   }
 
   let scoutTimer = null;
+  async function scoutJSON(path, opts) {
+    const url = STATIC_MODE ? LOCAL_APP + path : path;
+    const res = await fetch(url, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data;
+  }
+
   async function pollScout() {
-    const scout = await getJSON("/api/scout");
-    updateScoutButton(scout);
-    if (scout.running) scoutTimer = setTimeout(pollScout, 3000);
-    else {
+    try {
+      const scout = await scoutJSON("/api/scout");
+      updateScoutButton(scout);
+      if (scout.running) scoutTimer = setTimeout(pollScout, 3000);
+      else {
+        scoutTimer = null;
+        if (scout.finished_at && !STATIC_MODE) await refresh();
+        else if (scout.finished_at) {
+          setSyncNote("Job search finished on your computer. Open the local dashboard to see new matches.", true);
+        }
+      }
+    } catch (err) {
       scoutTimer = null;
-      if (scout.finished_at) await refresh();
+      setSyncNote(err.message, true);
+    }
+  }
+
+  async function runScout() {
+    try {
+      const scout = await scoutJSON("/api/scout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      updateScoutButton(scout);
+      if (!scoutTimer) pollScout();
+    } catch (err) {
+      if (STATIC_MODE) {
+        setSyncNote("Find jobs runs on this computer. Start the local app first: python3 autopilot.py dashboard — then press Find jobs again.", true);
+        return;
+      }
+      setSyncNote(err.message, true);
     }
   }
 
@@ -868,19 +908,8 @@
     }
   });
 
-  $("btnScout").addEventListener("click", async () => {
-    if (STATIC_MODE) {
-      setSyncNote("Find jobs runs on your computer after you open the local dashboard.", true);
-      return;
-    }
-    try {
-      const scout = await postJSON("/api/scout", {});
-      updateScoutButton(scout);
-      if (!scoutTimer) pollScout();
-    } catch (err) {
-      setSyncNote(err.message, true);
-    }
-  });
+  $("btnScout").addEventListener("click", runScout);
+  if ($("btnScoutInline")) $("btnScoutInline").addEventListener("click", runScout);
 
   $("btnSetupCancel").addEventListener("click", () => {
     location.hash = "#/";
