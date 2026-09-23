@@ -12,6 +12,7 @@ import re
 import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -116,6 +117,8 @@ def job_record(**fields) -> dict:
     description = full_text[:1500]
     location = fields.get("location") or ""
     url = fields.get("url") or ""
+    if url.startswith("http://"):
+        url = "https://" + url[len("http://"):]
     if not url.startswith("https://"):
         return {}
     posted = iso_utc(fields.get("posted_at") or "")
@@ -130,7 +133,7 @@ def job_record(**fields) -> dict:
     return {
         "id": fields["id"],
         "source": fields["source"],
-        "company": fields.get("company") or "",
+        "company": re.sub(r"\s+", " ", str(fields.get("company") or "")).strip(),
         "title": title,
         "department": fields.get("department") or "",
         "url": url,
@@ -150,7 +153,13 @@ def job_record(**fields) -> dict:
 
 
 def from_greenhouse(token: str, company: str, limit: int) -> list[dict]:
-    data = fetch_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true")
+    data = {}
+    try:
+        data = fetch_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true")
+    except Exception:
+        data = {}
+    if not (data.get("jobs") or []):
+        data = fetch_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs")
     rows = []
     for job in limited(data.get("jobs"), limit):
         loc = (job.get("location") or {}).get("name") or ""
@@ -261,17 +270,135 @@ def time_key(value) -> str:
     return str(value or "")
 
 
+def clean_company(name: str) -> str:
+    return re.sub(r"\s+", " ", str(name or "")).strip()
+
+
+def is_stale(job: dict) -> bool:
+    company = clean_company(job.get("company")).lower()
+    ident = str(job.get("id") or "")
+    if ident.startswith("ashby-anthropic"):
+        return True
+    return job.get("source") == "ashby" and company == "anthropic"
+
+
+def merge_locations(current: dict, job: dict) -> None:
+    parts: list[str] = []
+    for raw in (current.get("location_raw") or "", job.get("location_raw") or ""):
+        for part in str(raw).split(" · "):
+            part = re.sub(r"\s+", " ", part).strip()
+            if part and part not in parts:
+                parts.append(part)
+    current["location_raw"] = " · ".join(parts)
+    seen: list[dict] = []
+    blobs: set[str] = set()
+    for row in (current.get("locations") or []) + (job.get("locations") or []):
+        blob = json.dumps(row, sort_keys=True)
+        if blob in blobs:
+            continue
+        blobs.add(blob)
+        seen.append(row)
+    if seen:
+        current["locations"] = seen
+
+
+def posting_key(job: dict) -> str:
+    company = clean_company(job.get("company")).lower()
+    title = re.sub(r"\s+", " ", str(job.get("title") or "")).strip().lower()
+    desc = re.sub(r"\s+", " ", str(job.get("description_text") or "")).strip().lower()[:480]
+    if len(desc) >= 80:
+        return f"{job.get('source') or ''}|{company}|{title}|{desc}"
+    url = str(job.get("url") or "").split("?")[0].rstrip("/").lower()
+    if url:
+        return f"url|{url}"
+    return f"id|{job.get('id')}"
+
+
 def dedupe(jobs: list[dict]) -> list[dict]:
     best: dict[str, dict] = {}
+    order: list[str] = []
     for job in jobs:
-        key = "|".join(
-            re.sub(r"\s+", " ", (job.get(field) or "").lower()).strip()
-            for field in ("company", "title", "location_raw")
-        )
+        if not job or is_stale(job):
+            continue
+        row = dict(job)
+        row["company"] = clean_company(row.get("company"))
+        key = posting_key(row)
         current = best.get(key)
-        if current is None or time_key(job.get("updated_at")) > time_key(current.get("updated_at")):
-            best[key] = job
-    return list(best.values())
+        if current is None:
+            best[key] = row
+            order.append(key)
+            continue
+        if time_key(row.get("updated_at")) > time_key(current.get("updated_at")):
+            merge_locations(row, current)
+            best[key] = row
+        else:
+            merge_locations(current, row)
+    return [best[key] for key in order]
+
+
+HEALTH_BOARDS = [
+    ("greenhouse", "onemedical", "One Medical"),
+    ("greenhouse", "oscar", "Oscar Health"),
+    ("greenhouse", "natera", "Natera"),
+    ("greenhouse", "mavenclinic", "Maven Clinic"),
+    ("greenhouse", "flatironhealth", "Flatiron Health"),
+    ("greenhouse", "freenome", "Freenome"),
+    ("greenhouse", "talkspace", "Talkspace"),
+    ("greenhouse", "omadahealth", "Omada Health"),
+    ("greenhouse", "pathai", "PathAI"),
+    ("greenhouse", "modernhealth", "Modern Health"),
+    ("greenhouse", "amwell", "Amwell"),
+    ("greenhouse", "folxhealth", "Folx Health"),
+    ("greenhouse", "forward", "Forward"),
+    ("greenhouse", "collectivehealth", "Collective Health"),
+]
+
+
+def from_usajobs(limit: int) -> list[dict]:
+    key = os.environ.get("USAJOBS_API_KEY") or ""
+    email = os.environ.get("USAJOBS_EMAIL") or ""
+    if not key or not email:
+        return []
+    queries = [
+        ("Registered Nurse", "Chicago, Illinois"),
+        ("Software Engineer", "United States"),
+        ("Data Scientist", "United States"),
+    ]
+    rows = []
+    for keyword, location in queries:
+        url = (
+            "https://data.usajobs.gov/api/search?ResultsPerPage=50&Keyword="
+            + urllib.parse.quote(keyword)
+            + "&LocationName="
+            + urllib.parse.quote(location)
+        )
+        req = urllib.request.Request(url, headers={
+            "User-Agent": email,
+            "Authorization-Key": key,
+            "Accept": "application/json",
+            "Host": "data.usajobs.gov",
+        })
+        with urllib.request.urlopen(req, timeout=25) as res:
+            data = json.loads(res.read().decode("utf-8", "replace"))
+        items = ((data.get("SearchResult") or {}).get("SearchResultItems") or [])
+        for item in limited(items, limit):
+            desc = item.get("MatchedObjectDescriptor") or {}
+            summary = ((desc.get("UserArea") or {}).get("Details") or {}).get("JobSummary") or ""
+            pay = (desc.get("PositionRemuneration") or [{}])[0] or {}
+            rows.append(job_record(
+                id=f"usajobs-{item.get('MatchedObjectId')}",
+                source="usajobs",
+                company=desc.get("OrganizationName") or "USAJobs",
+                title=desc.get("PositionTitle") or "",
+                url=desc.get("PositionURI") or "",
+                location=desc.get("PositionLocationDisplay") or location,
+                posted_at=desc.get("PublicationStartDate") or "",
+                updated_at=desc.get("PublicationStartDate") or "",
+                description=summary,
+                salary_min=pay.get("MinimumRange"),
+                salary_max=pay.get("MaximumRange"),
+            ))
+    return [row for row in rows if row]
 
 
 def shard_name(job: dict) -> str:
@@ -347,6 +474,10 @@ def build(limit_companies: int, per_company: int, workers: int = 12) -> dict:
         jobs.extend(from_arbeitnow(per_company))
     except Exception as exc:
         errors.append(f"arbeitnow: {exc.__class__.__name__}")
+    try:
+        jobs.extend(from_usajobs(per_company))
+    except Exception as exc:
+        errors.append(f"usajobs: {exc.__class__.__name__}")
     jobs = dedupe([job for job in jobs if job])
     jobs = [job for job in jobs if within_days(job.get("updated_at"), job.get("posted_at"))]
     bad_dates = [job["id"] for job in jobs if not isinstance(job.get("posted_at"), str) or not isinstance(job.get("updated_at"), str)]
@@ -358,18 +489,27 @@ def build(limit_companies: int, per_company: int, workers: int = 12) -> dict:
         print("coverage gate failed: " + "; ".join(problems))
         print(f"jobs {len(jobs)} errors {len(errors)}")
         raise SystemExit(1)
-    OUT.mkdir(parents=True, exist_ok=True)
+    return write_feed(jobs, errors, OUT)
+
+
+def pieces(rows: list[dict]) -> list[list[dict]]:
+    payload = json.dumps({"jobs": rows}, separators=(",", ":")).encode()
+    if len(payload) <= 1_500_000 or len(rows) <= 1:
+        return [rows]
+    mid = max(1, len(rows) // 2)
+    return pieces(rows[:mid]) + pieces(rows[mid:])
+
+
+def write_feed(jobs: list[dict], errors: list[str], out: Path) -> dict:
+    out.mkdir(parents=True, exist_ok=True)
     buckets: dict[str, list] = {}
     for job in jobs:
         buckets.setdefault(shard_name(job), []).append(job)
-
-    def pieces(rows: list[dict]) -> list[list[dict]]:
-        payload = json.dumps({"jobs": rows}, separators=(",", ":")).encode()
-        if len(payload) <= 1_500_000 or len(rows) <= 1:
-            return [rows]
-        mid = max(1, len(rows) // 2)
-        return pieces(rows[:mid]) + pieces(rows[mid:])
-
+    for old in out.glob("*.json"):
+        if old.name != "manifest.json":
+            old.unlink()
+    for old in out.glob("*.json.gz"):
+        old.unlink()
     shards = []
     hashes = {}
     written = 0
@@ -377,8 +517,8 @@ def build(limit_companies: int, per_company: int, workers: int = 12) -> dict:
         for index, chunk in enumerate(pieces(rows), start=1):
             shard = name if index == 1 else name.replace(".json", f"-{index}.json")
             payload = json.dumps({"jobs": chunk}, separators=(",", ":")).encode()
-            (OUT / shard).write_bytes(payload)
-            (OUT / f"{shard}.gz").write_bytes(gzip.compress(payload))
+            (out / shard).write_bytes(payload)
+            (out / f"{shard}.gz").write_bytes(gzip.compress(payload))
             shards.append(shard)
             hashes[shard] = hashlib.sha256(payload).hexdigest()
             written += len(chunk)
@@ -389,8 +529,45 @@ def build(limit_companies: int, per_company: int, workers: int = 12) -> dict:
         "job_count": written,
         "errors": errors[:40],
     }
-    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest
+
+
+def load_feed_dir(path: Path) -> tuple[list[dict], list[str]]:
+    manifest = json.loads((path / "manifest.json").read_text())
+    jobs: list[dict] = []
+    for shard in manifest.get("shards") or []:
+        data = json.loads((path / shard).read_text())
+        jobs.extend(data["jobs"] if isinstance(data, dict) else data)
+    return jobs, list(manifest.get("errors") or [])
+
+
+def augment_directory(source: Path, out: Path) -> dict:
+    jobs, errors = load_feed_dir(source)
+    jobs = [job for job in jobs if not is_stale(job)]
+    errors = [item for item in errors if "ashby:anthropic" not in item]
+    for source_name, token, company in HEALTH_BOARDS:
+        try:
+            if source_name == "greenhouse":
+                found = from_greenhouse(token, company, 0)
+            else:
+                found = []
+            jobs.extend(found)
+            print(f"added {source_name}:{token} {len(found)}", flush=True)
+        except Exception as exc:
+            errors.append(f"{source_name}:{token}: {exc.__class__.__name__}")
+            print(f"failed {source_name}:{token} {exc.__class__.__name__}", flush=True)
+    try:
+        jobs.extend(from_usajobs(0))
+    except Exception as exc:
+        errors.append(f"usajobs: {exc.__class__.__name__}")
+    jobs = dedupe(jobs)
+    jobs = [job for job in jobs if within_days(job.get("updated_at"), job.get("posted_at"))]
+    problems = coverage_problems(jobs)
+    if problems:
+        print("coverage gate failed: " + "; ".join(problems))
+        raise SystemExit(1)
+    return write_feed(jobs, errors, out)
 
 
 def print_audit(jobs: list[dict], generated_at: str) -> None:
@@ -452,7 +629,14 @@ def main() -> int:
     parser.add_argument("--limit-companies", type=int, default=0)
     parser.add_argument("--per-company", type=int, default=0)
     parser.add_argument("--workers", type=int, default=12)
+    parser.add_argument("--augment-dir", default="")
+    parser.add_argument("--out", default="")
     args = parser.parse_args()
+    if args.augment_dir:
+        dest = Path(args.out) if args.out else Path("/tmp/feeds-patched")
+        manifest = augment_directory(Path(args.augment_dir), dest)
+        print(f"jobs {manifest['job_count']} shards {len(manifest['shards'])} out {dest}")
+        return 0
     if args.check:
         rows = load_catalog()
         print(f"catalog ok: {len(rows)} employers")

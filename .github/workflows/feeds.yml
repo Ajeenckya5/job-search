@@ -34,6 +34,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build feeds
+        env:
+          USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+          USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
         run: pip install pyyaml && FEED_OUT="$GITHUB_WORKSPACE/feeds" python feed-builder/build_feeds.py
       - name: Keep the schedule active
         run: date -u +%Y-%m-%dT%H:%M:%SZ

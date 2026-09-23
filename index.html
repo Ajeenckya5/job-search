@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#1b1914">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <script type="module" crossorigin src="./assets/index-C3MD0G4D.js"></script>
+  <script type="module" crossorigin src="./assets/index-ulh9u-xX.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-zlvt8BJj.css">
 </head>
 <body>
@@ -52,7 +52,7 @@
             <label for="whereInput">Places, separated by commas</label>
             <input id="whereInput" name="locations" type="text" placeholder="Chicago, Remote, United States">
             <label for="lookback">Look back (days)</label>
-            <input id="lookback" name="lookback_days" type="number" min="1" max="30" value="7">
+            <input id="lookback" name="lookback_days" type="number" min="1" max="30" value="14">
             <label for="maxYears">Skip roles asking for more than this many years</label>
             <input id="maxYears" name="max_years" type="number" min="0" max="40" placeholder="Optional">
             <label for="salary">Minimum salary</label>
@@ -119,7 +119,13 @@
           <li>Company boards are always on.</li>
           <li>LinkedIn, Google Jobs, and Jobright are saved from pages you already have open, or from alert email on this computer.</li>
           <li>Scheduled LinkedIn search is off.</li>
+          <li>USAJobs is added on the next search when you save a free API key. The key stays in this browser.</li>
         </ul>
+        <label for="usajobsEmail">USAJobs email</label>
+        <input id="usajobsEmail" name="usajobs_email" type="email" autocomplete="email">
+        <label for="usajobsKey">USAJobs API key</label>
+        <input id="usajobsKey" name="usajobs_key" type="password" autocomplete="off">
+        <p class="hint">Get a free key from the USAJobs developer site. The request uses that key only from this browser.</p>
         <p class="hint">Install the capture extension from the extension folder with Load unpacked. It does not browse or log in. Saved jobs import when this page opens.</p>
         <details>
           <summary>Advanced</summary>

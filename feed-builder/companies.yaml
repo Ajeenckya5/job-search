@@ -72,10 +72,6 @@ companies:
     name: "Anthelion Capital"
     family: fintech
   - source: ashby
-    token: anthropic
-    name: "Anthropic"
-    family: software
-  - source: ashby
     token: apex-technology-inc
     name: "Apex"
     family: software
@@ -2686,6 +2682,58 @@ companies:
   - source: greenhouse
     token: onemedical
     name: "One Medical"
+    family: health
+  - source: greenhouse
+    token: oscar
+    name: "Oscar Health"
+    family: health
+  - source: greenhouse
+    token: natera
+    name: "Natera"
+    family: health
+  - source: greenhouse
+    token: mavenclinic
+    name: "Maven Clinic"
+    family: health
+  - source: greenhouse
+    token: flatironhealth
+    name: "Flatiron Health"
+    family: health
+  - source: greenhouse
+    token: freenome
+    name: "Freenome"
+    family: health
+  - source: greenhouse
+    token: talkspace
+    name: "Talkspace"
+    family: health
+  - source: greenhouse
+    token: omadahealth
+    name: "Omada Health"
+    family: health
+  - source: greenhouse
+    token: pathai
+    name: "PathAI"
+    family: health
+  - source: greenhouse
+    token: modernhealth
+    name: "Modern Health"
+    family: health
+  - source: greenhouse
+    token: amwell
+    name: "Amwell"
+    family: health
+  - source: greenhouse
+    token: folxhealth
+    name: "Folx Health"
+    family: health
+  - source: greenhouse
+    token: forward
+    name: "Forward"
+    family: health
+  - source: greenhouse
+    token: collectivehealth
+    name: "Collective Health"
     family: health
   - source: greenhouse
     token: optirtc
