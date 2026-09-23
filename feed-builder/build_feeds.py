@@ -20,6 +20,8 @@ from pathlib import Path
 
 import yaml
 
+from extract import countries_in, iso_utc, salary_from, seniority_of, sponsorship_of, within_days, years_required
+
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = Path(__file__).resolve().parent / "companies.yaml"
 OUT = Path(os.environ.get("FEED_OUT") or (ROOT / "site" / "public" / "feeds"))
@@ -36,28 +38,13 @@ class _Text(HTMLParser):
         self.parts.append(data)
 
 
-def strip_html(raw: str) -> str:
+def strip_html(raw: str, limit: int = 1500) -> str:
     parser = _Text()
     parser.feed(raw or "")
     text = re.sub(r"\s+", " ", " ".join(parser.parts)).strip()
-    return text[:1500]
-
-
-def years_required(title: str, description: str):
-    match = re.search(r"(\d{1,2})\s*\+?\s*(?:years|yrs)\b", f"{title} {description}", re.I)
-    if not match:
-        return None
-    value = int(match.group(1))
-    return value if 0 <= value <= 40 else None
-
-
-def sponsorship(text: str) -> str:
-    blob = (text or "").lower()
-    if re.search(r"unable to sponsor|cannot sponsor|no sponsorship|without sponsorship|must be authorized to work", blob):
-        return "no"
-    if re.search(r"visa sponsorship|will sponsor|sponsorship available|h-1b", blob):
-        return "yes"
-    return "unknown"
+    if limit and len(text) > limit:
+        return text[:limit]
+    return text
 
 
 def remote_type(location: str) -> str:
@@ -69,13 +56,17 @@ def remote_type(location: str) -> str:
     return "onsite"
 
 
-def country_of(location: str) -> str:
-    blob = (location or "").lower()
-    if not blob or "remote" in blob or "anywhere" in blob:
-        return "Remote"
-    if re.search(r"united states|\busa\b|\bu\.s\.|,\s*[a-z]{2}\b", blob):
-        return "United States"
-    return location.split(",")[-1].strip()[:40] or "Other"
+def location_rows(location: str) -> list[dict]:
+    places = countries_in(location)
+    remote = remote_type(location)
+    if not places:
+        places = ["Remote" if remote == "remote" else "Other"]
+    return [{
+        "city": "",
+        "region": "",
+        "country": place,
+        "remote": "remote" if remote == "remote" else "",
+    } for place in places]
 
 
 def fetch_json(url: str, timeout: int = 25):
@@ -121,12 +112,21 @@ def coverage_problems(jobs: list[dict]) -> list[str]:
 
 def job_record(**fields) -> dict:
     title = fields.get("title") or ""
-    description = strip_html(fields.get("description") or "")
+    full_text = strip_html(fields.get("description") or "", limit=0)
+    description = full_text[:1500]
     location = fields.get("location") or ""
     url = fields.get("url") or ""
     if not url.startswith("https://"):
         return {}
-    posted = fields.get("posted_at") or ""
+    posted = iso_utc(fields.get("posted_at") or "")
+    updated = iso_utc(fields.get("updated_at") or "") or posted
+    pay = salary_from(f"{title} {full_text}")
+    if fields.get("salary_min") is not None:
+        pay = {
+            "salary_min": fields.get("salary_min"),
+            "salary_max": fields.get("salary_max"),
+            "currency": fields.get("currency") or pay["currency"] or "USD",
+        }
     return {
         "id": fields["id"],
         "source": fields["source"],
@@ -135,21 +135,16 @@ def job_record(**fields) -> dict:
         "department": fields.get("department") or "",
         "url": url,
         "location_raw": location,
-        "locations": [{
-            "city": "",
-            "region": "",
-            "country": country_of(location),
-            "remote": "remote" if remote_type(location) == "remote" else "",
-        }],
+        "locations": location_rows(location),
         "remote_type": remote_type(location),
         "posted_at": posted,
-        "updated_at": fields.get("updated_at") or posted,
-        "salary_min": fields.get("salary_min"),
-        "salary_max": fields.get("salary_max"),
-        "currency": fields.get("currency") or "",
+        "updated_at": updated,
+        "salary_min": pay["salary_min"],
+        "salary_max": pay["salary_max"],
+        "currency": pay["currency"] if pay["salary_min"] is not None else "",
         "years_required": years_required(title, description),
-        "seniority": "",
-        "sponsorship": sponsorship(f"{title} {description}"),
+        "seniority": seniority_of(title),
+        "sponsorship": sponsorship_of(f"{title} {description}"),
         "description_text": description,
     }
 
@@ -180,7 +175,7 @@ def from_lever(token: str, company: str, limit: int) -> list[dict]:
     for job in limited(data, limit):
         cats = job.get("categories") or {}
         created = job.get("createdAt")
-        posted = datetime.fromtimestamp(created / 1000, timezone.utc).isoformat() if created else ""
+        pay = job.get("salaryRange") or {}
         rows.append(job_record(
             id=f"lever-{token}-{job.get('id')}",
             source="lever",
@@ -189,9 +184,12 @@ def from_lever(token: str, company: str, limit: int) -> list[dict]:
             department=cats.get("department") or cats.get("team") or "",
             url=job.get("hostedUrl") or job.get("applyUrl") or "",
             location=cats.get("location") or "",
-            posted_at=posted,
-            updated_at=posted,
-            description=job.get("descriptionPlain") or job.get("description") or "",
+            posted_at=created or "",
+            updated_at=created or "",
+            description=f"{job.get('descriptionPlain') or job.get('description') or ''} {job.get('salaryDescriptionPlain') or ''}",
+            salary_min=pay.get("min") if isinstance(pay, dict) else None,
+            salary_max=pay.get("max") if isinstance(pay, dict) else None,
+            currency=(pay.get("currency") if isinstance(pay, dict) else "") or "",
         ))
     return [row for row in rows if row]
 
@@ -350,6 +348,11 @@ def build(limit_companies: int, per_company: int, workers: int = 12) -> dict:
     except Exception as exc:
         errors.append(f"arbeitnow: {exc.__class__.__name__}")
     jobs = dedupe([job for job in jobs if job])
+    jobs = [job for job in jobs if within_days(job.get("updated_at"), job.get("posted_at"))]
+    bad_dates = [job["id"] for job in jobs if not isinstance(job.get("posted_at"), str) or not isinstance(job.get("updated_at"), str)]
+    if bad_dates:
+        print(f"date schema failed: {len(bad_dates)} non-string dates")
+        raise SystemExit(1)
     problems = coverage_problems(jobs)
     if problems:
         print("coverage gate failed: " + "; ".join(problems))
