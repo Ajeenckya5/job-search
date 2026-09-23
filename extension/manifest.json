@@ -12,7 +12,7 @@
   "externally_connectable": {
     "matches": ["https://ajeenckya5.github.io/*", "http://127.0.0.1/*"]
   },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": { "service_worker": "background.js" },
   "action": { "default_title": "Save jobs on this page" },
     "content_scripts": [
     {
