@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#1b1914">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <script type="module" crossorigin src="./assets/index-Cr-eNi1N.js"></script>
+  <script type="module" crossorigin src="./assets/index-C3MD0G4D.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-zlvt8BJj.css">
 </head>
 <body>
@@ -97,6 +97,7 @@
           <label for="minScore">Minimum score</label>
           <input id="minScore" type="number" min="0" max="100" value="0">
           <label class="check" for="remoteFilter"><input id="remoteFilter" type="checkbox"> Remote only</label>
+          <label class="check" for="showPossible"><input id="showPossible" type="checkbox"> Show possible matches</label>
           <label class="check" for="sinceVisit"><input id="sinceVisit" type="checkbox"> New since last visit</label>
         </div>
         <p id="jobCount" aria-live="polite"></p>
@@ -119,10 +120,13 @@
           <li>LinkedIn, Google Jobs, and Jobright are saved from pages you already have open, or from alert email on this computer.</li>
           <li>Scheduled LinkedIn search is off.</li>
         </ul>
-        <p class="hint">Install the capture extension from the extension folder with Load unpacked. It does not browse or log in.</p>
-        <label for="extensionId">Extension id</label>
-        <input id="extensionId" type="text" autocomplete="off" spellcheck="false">
-        <button id="btnImportCapture" class="btn" type="button">Import jobs saved by the extension</button>
+        <p class="hint">Install the capture extension from the extension folder with Load unpacked. It does not browse or log in. Saved jobs import when this page opens.</p>
+        <details>
+          <summary>Advanced</summary>
+          <label for="extensionId">Extension id</label>
+          <input id="extensionId" type="text" autocomplete="off" spellcheck="false">
+          <button id="btnImportCapture" class="btn" type="button">Import jobs saved by the extension</button>
+        </details>
         <label class="check" for="liveBoards"><input id="liveBoards" type="checkbox"> Search live boards on this computer</label>
         <p class="hint">Off by default. The public site never scrapes LinkedIn, Indeed, Google, or Jobright.</p>
         <button id="btnLocalScout" class="btn" type="button">Run local board search</button>
