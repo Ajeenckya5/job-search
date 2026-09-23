@@ -13,8 +13,8 @@
   <meta name="theme-color" content="#1b1914">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <script type="module" crossorigin src="./assets/index-CuVA3dfZ.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Db8GA5YV.css">
+  <script type="module" crossorigin src="./assets/index-BsCmGZvJ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-zlvt8BJj.css">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -59,6 +59,7 @@
             <input id="salary" name="min_salary" type="number" min="0" step="1000" placeholder="Optional">
             <label class="check" for="remoteOnly"><input id="remoteOnly" type="checkbox"> Remote only</label>
             <label class="check" for="sponsor"><input id="sponsor" type="checkbox"> Sponsorship needed</label>
+            <label class="check" for="skipLeadership"><input id="skipLeadership" type="checkbox"> Skip leadership titles</label>
             <label for="runs">Times per day on this computer</label>
             <input id="runs" name="runs_per_day" type="text" inputmode="numeric" value="0" autocomplete="off">
             <p class="hint">The public site searches when you press Search. A closed tab does not run a schedule.</p>
@@ -93,6 +94,10 @@
             <option value="rejected">Rejected</option>
             <option value="withdrawn">Withdrawn</option>
           </select>
+          <label for="minScore">Minimum score</label>
+          <input id="minScore" type="number" min="0" max="100" value="0">
+          <label class="check" for="remoteFilter"><input id="remoteFilter" type="checkbox"> Remote only</label>
+          <label class="check" for="sinceVisit"><input id="sinceVisit" type="checkbox"> New since last visit</label>
         </div>
         <p id="jobCount" aria-live="polite"></p>
         <ul id="jobList" class="jobs"></ul>
@@ -128,6 +133,13 @@
         <button id="btnErase" class="btn danger" type="button">Erase everything</button>
       </section>
     </main>
+    <div id="applyAsk" class="dialog" hidden role="dialog" aria-labelledby="applyAskTitle">
+      <p id="applyAskTitle">Did you apply?</p>
+      <div class="row">
+        <button id="applyYes" class="btn primary" type="button">Yes</button>
+        <button id="applyNo" class="btn" type="button">Not yet</button>
+      </div>
+    </div>
   </div>
 </body>
 </html>
