@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-09-23T01:48:45.980958+00:00",
+  "shards": [
+    "other-general.json",
+    "other-health.json",
+    "other-logistics.json",
+    "other-retail.json",
+    "other-software.json",
+    "remote-general.json",
+    "remote-software.json",
+    "united-states-general.json",
+    "united-states-logistics.json",
+    "united-states-software.json"
+  ],
+  "sha256": {
+    "other-general.json": "765d46cf4d6b06c38e989633374b424b818ee3a2c4f21db4144f99c8b5959bbc",
+    "other-health.json": "995c3eaac55532f18107d032de410973008dd094f33057ee7a3ae5e8c5228010",
+    "other-logistics.json": "483f79341eac0cee4aed4c04dd0601859a9eae89b0b5f096bf800164838ab6e6",
+    "other-retail.json": "e403b680cea71f3ebbc15d83cb73258c7ab5eede5f4b55a2b7c947e8a200d005",
+    "other-software.json": "61370e33a7a969bbf64c64f755dd071453e04ab842af5e0291f1b17c0151517d",
+    "remote-general.json": "80f2c4982caa5d43c2da1f023e8dc334a024389ad1d99cd16f66c01c41b11d98",
+    "remote-software.json": "e28a559b38bd63e0a7b213c2771a7b0cee3753699a7e170be85d27fa6a55d36e",
+    "united-states-general.json": "ad445489c74f3b79bf2a3f4c6a3611036107374a0450e01c9ad94fa881dd9cc4",
+    "united-states-logistics.json": "420730543b57a3d0494b0fb0510d2c3800ebce4d8c033f58ffc75574f379f7a6",
+    "united-states-software.json": "d0a891479021bd715a991de08f4e83e0e226fa2256f53cff3e678102aca521a2"
+  },
+  "job_count": 198,
+  "errors": []
+}

@@ -1,348 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <meta name="theme-color" content="#1b1914">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Job Autopilot">
   <title>Job Autopilot</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=google7">
+  <meta name="description" content="Private job search. Your resume stays on this device, and matches come from public company job boards.">
+  <link rel="canonical" href="https://ajeenckya5.github.io/job-search/">
+  <meta property="og:title" content="Job Autopilot">
+  <meta property="og:description" content="Private job search. Your resume stays on this device.">
+  <meta property="og:image" content="https://ajeenckya5.github.io/job-search/og.png">
+  <meta property="og:url" content="https://ajeenckya5.github.io/job-search/">
+  <meta name="theme-color" content="#1b1914">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <script type="module" crossorigin src="./assets/index-CuVA3dfZ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Db8GA5YV.css">
 </head>
 <body>
-  <section class="screen is-on" id="screen-setup">
-    <div class="setup-frame" data-step="1">
-      <aside class="setup-rail">
-        <p class="mark">Job Autopilot</p>
-        <h1 class="rail-title" id="setupHeading">Set up your job search</h1>
-        <p class="rail-lead" id="setupLead">A few questions, one screen at a time. APIs are optional at the end.</p>
-        <ol class="wizard-progress" id="wizardProgress" aria-label="Setup steps">
-          <li class="is-on"><button type="button" data-goto="1"><span class="n">01</span> Name</button></li>
-          <li><button type="button" data-goto="2"><span class="n">02</span> Resume</button></li>
-          <li><button type="button" data-goto="3"><span class="n">03</span> Roles</button></li>
-          <li><button type="button" data-goto="4"><span class="n">04</span> Locations</button></li>
-          <li><button type="button" data-goto="5"><span class="n">05</span> Schedule</button></li>
-          <li><button type="button" data-goto="6"><span class="n">06</span> Optional</button></li>
-        </ol>
-        <p class="rail-foot">Private to this device. Resume, titles, and matches never leave this phone or computer. We do not keep a copy.</p>
-      </aside>
-      <div class="setup-stage">
-        <p class="step-index" id="setupStepIndex">01  /  06</p>
-        <p class="sync-note" id="pagesNote" hidden></p>
-        <form class="setup-card" id="setupForm">
-          <p class="sync-note" id="setupError" hidden></p>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="shell">
+    <header class="rail">
+      <p class="mark">Job Autopilot</p>
+      <nav aria-label="Sections">
+        <button type="button" data-nav="home">Home</button>
+        <button type="button" data-nav="tracker">Tracker</button>
+        <button type="button" data-nav="settings">Settings</button>
+      </nav>
+      <p class="rail-note">Resume stays in this browser.</p>
+    </header>
+    <main id="main">
+      <p id="offline" class="banner" hidden>You are offline. Showing roles saved on this device.</p>
+      <p id="feedAge" class="banner" hidden>The company feed is more than 12 hours old. Search again after the next update.</p>
+      <p id="toast" class="toast" role="status" hidden></p>
 
-          <div class="wizard-step is-on" data-step="1">
-            <h2>What’s your name?</h2>
-            <p class="setup-lead">This is how the desk addresses you.</p>
-            <div class="setup-grid">
-              <label class="wide">Name <input name="name" placeholder="Your name" autocomplete="name"></label>
-            </div>
+      <section data-view="welcome">
+        <h1>Find roles that fit</h1>
+        <p class="lede">Your resume stays in this browser. Search reads a saved feed from public company job boards. Nothing is uploaded.</p>
+        <form id="setupForm" novalidate>
+          <div id="stepResume">
+            <label for="resumeFile">Resume (PDF, DOCX, or TXT)</label>
+            <input id="resumeFile" name="resume" type="file" accept=".pdf,.docx,.txt,application/pdf">
+            <p id="resumeError" class="error" role="alert"></p>
           </div>
-
-          <div class="wizard-step" data-step="2">
-            <h2>Your resume</h2>
-            <p class="setup-lead">Every posting is scored against this file. PDF reads cleanest.</p>
-            <label class="file-drop wide">
-              <input name="resume_file" type="file" accept=".pdf,.txt,.doc,.docx,application/pdf">
-              <span class="file-drop-ui" id="fileDropLabel">Drop a PDF here, or browse</span>
-              <span class="file-hint" id="resumeHint">PDF or TXT. On a phone, pick the file from Files or Drive.</span>
-            </label>
-            <div class="setup-grid" id="resumePathWrap">
-              <label class="wide">Or paste the full path <input name="resume_pdf" placeholder="/Users/you/Downloads/resume.pdf"></label>
-            </div>
-          </div>
-
-          <div class="wizard-step" data-step="3">
-            <h2>Which roles?</h2>
-            <p class="setup-lead">Add every title you want searched. Each one is run on LinkedIn, Indeed, Jobright, and Google, then scored against your resume.</p>
-            <div id="roleList" class="repeat-list"></div>
-            <button type="button" class="btn btn-ghost" id="btnAddRole">Add another role</button>
-          </div>
-
-          <div class="wizard-step" data-step="4">
-            <h2>Where should it look?</h2>
-            <p class="setup-lead">Cities, Remote, or a country. Each role is searched in each place.</p>
-            <div id="locationList" class="repeat-list"></div>
-            <button type="button" class="btn btn-ghost" id="btnAddLocation">Add another location</button>
-          </div>
-
-          <div class="wizard-step" data-step="5">
-            <h2>How often?</h2>
-            <p class="setup-lead">You can always press Find jobs to scrape by hand. A schedule is optional.</p>
-            <div class="choice-row" id="cadenceChoices">
-              <button type="button" data-runs="0">I’ll run it myself</button>
-              <button type="button" data-runs="1">Once</button>
-              <button type="button" data-runs="2">Twice</button>
-              <button type="button" data-runs="4" class="is-on">Four</button>
-              <button type="button" data-runs="8">Eight</button>
-            </div>
-            <div class="setup-grid">
-              <label class="wide">Custom times per day <input name="runs_per_day" type="number" min="0" max="24" value="4"></label>
-            </div>
-            <p class="file-hint">0 means only when you press Find jobs. Find jobs searches LinkedIn, Indeed, Jobright, and Google. Your resume stays on the device.</p>
-          </div>
-
-          <div class="wizard-step" data-step="6">
-            <h2>Anything else?</h2>
-            <p class="setup-lead">Skip what you don’t have. Keys stay on your machine.</p>
-            <div class="field-block">
-              <h3>Contact</h3>
-              <p class="privacy-note">Optional. Saved only on this device. It is not uploaded to GitHub, Job Autopilot, or any server we run.</p>
-              <div class="setup-grid">
-                <label>Email <input name="email" id="setupEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
-                <label>Phone <input name="phone" placeholder="optional"></label>
-                <label class="wide">LinkedIn <input name="linkedin" placeholder="https://linkedin.com/in/you"></label>
-              </div>
-              <div class="mail-consent" id="mailConsentBlock" hidden>
-                <p class="consent-q">Do you want this computer to read that mailbox?</p>
-                <div class="choice-row" id="mailConsentChoices">
-                  <button type="button" data-consent="no" class="is-on">No. Email is just a label.</button>
-                  <button type="button" data-consent="yes">Yes. I’ll scan it myself.</button>
-                </div>
-                <input type="hidden" name="mail_scan_consent" id="mailScanConsent" value="no">
-                <p class="file-hint">The default is no. If you say yes, nothing runs until you press Sync mailbox. Mail is read over IMAP from this machine only. We never get a copy.</p>
-                <p class="file-hint" id="mailLocalOnly" hidden>Mailbox reading is not available on this public page. On your computer you can add access yourself — it still never runs automatically.</p>
-              </div>
-              <div id="mailScanFields" hidden>
-                <h3>Mailbox access</h3>
-                <p class="file-hint">You add this. It is never turned on automatically.</p>
-                <div class="setup-grid">
-                  <label>Mailbox provider
-                    <select name="mail_provider" id="mailProvider">
-                      <option value="auto">Auto-detect from your email</option>
-                      <option value="gmail">Gmail / Google Workspace</option>
-                      <option value="outlook">Outlook / Microsoft 365 / Hotmail</option>
-                      <option value="yahoo">Yahoo</option>
-                      <option value="icloud">iCloud</option>
-                      <option value="other">Other — enter an IMAP host</option>
-                    </select>
-                  </label>
-                  <label>Mailbox password or app password <input name="mail_password" type="password" placeholder="only on this computer" autocomplete="off"></label>
-                  <label class="wide" id="imapHostWrap" hidden>IMAP host <input name="imap_host" placeholder="imap.your-university.edu"></label>
-                </div>
-              </div>
-            </div>
-            <div class="field-block">
-              <h3>Search rules</h3>
-              <div class="setup-grid">
-                <label>Look back (days) <input name="lookback_days" type="number" min="1" max="60" value="7"></label>
-                <label>Skip postings over this many years <input name="max_years_required" type="number" min="0" max="20" value="3"></label>
-              </div>
-            </div>
-            <div class="field-block" id="optionalApisBlock">
-              <h3>APIs <span>optional</span></h3>
-              <p class="privacy-note">Leave blank to keep scoring on this computer. A key is only sent to the provider you pick, never to us.</p>
-              <div class="setup-grid">
-                <label>Scoring API
-                  <select name="llm_provider">
-                    <option value="gemini">Google Gemini (free)</option>
-                    <option value="groq">Groq (free)</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="openrouter">OpenRouter</option>
-                    <option value="xai">xAI Grok</option>
-                  </select>
-                </label>
-                <label>Scoring API key <input name="llm_api_key" type="password" placeholder="optional" autocomplete="off"></label>
-                <label>Job scraper API
-                  <select name="scraper_type" id="scraperType">
-                    <option value="none">Built-in scrapers only</option>
-                    <option value="jsearch">JSearch / RapidAPI</option>
-                    <option value="adzuna">Adzuna</option>
-                    <option value="serpapi">SerpAPI Google Jobs</option>
-                  </select>
-                </label>
-                <label>Scraper API key <input name="scraper_api_key" type="password" placeholder="optional" autocomplete="off"></label>
-                <label id="adzunaIdWrap" hidden>Adzuna app id <input name="adzuna_app_id" autocomplete="off"></label>
-              </div>
-            </div>
-          </div>
-
-          <div class="setup-actions">
-            <p class="caption" id="setupCaption">Saved only on this device. We never receive your data.</p>
-            <div class="setup-actions-btns">
-              <button type="button" class="btn btn-ghost" id="btnSetupCancel" hidden>Back to app</button>
-              <button type="button" class="btn btn-ghost" id="btnWizardBack" hidden>Back</button>
-              <button type="button" class="btn" id="btnWizardNext">Continue</button>
-              <button type="submit" class="btn" id="btnSetupSave" hidden>Save and open the app</button>
-            </div>
+          <div id="stepPrefs" hidden>
+            <p id="skillLabel">We read these skills. Tap one to drop it.</p>
+            <div id="skillChips" class="chips" role="group" aria-labelledby="skillLabel"></div>
+            <label for="personName">Name</label>
+            <input id="personName" name="name" type="text" autocomplete="name">
+            <label for="roleInput">Titles, separated by commas</label>
+            <input id="roleInput" name="roles" type="text" autocomplete="off">
+            <label for="whereInput">Places, separated by commas</label>
+            <input id="whereInput" name="locations" type="text" placeholder="Chicago, Remote, United States">
+            <label for="lookback">Look back (days)</label>
+            <input id="lookback" name="lookback_days" type="number" min="1" max="30" value="7">
+            <label for="maxYears">Skip roles asking for more than this many years</label>
+            <input id="maxYears" name="max_years" type="number" min="0" max="40" placeholder="Optional">
+            <label for="salary">Minimum salary</label>
+            <input id="salary" name="min_salary" type="number" min="0" step="1000" placeholder="Optional">
+            <label class="check" for="remoteOnly"><input id="remoteOnly" type="checkbox"> Remote only</label>
+            <label class="check" for="sponsor"><input id="sponsor" type="checkbox"> Sponsorship needed</label>
+            <label for="runs">Times per day on this computer</label>
+            <input id="runs" name="runs_per_day" type="text" inputmode="numeric" value="0" autocomplete="off">
+            <p class="hint">The public site searches when you press Search. A closed tab does not run a schedule.</p>
+            <p id="runsError" class="error" role="alert"></p>
+            <button id="saveSetup" class="btn primary" type="button">Save and search</button>
           </div>
         </form>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <section class="screen" id="screen-app">
-    <header class="top">
-      <a class="brand" href="#/">
-        <p class="mark">Job Autopilot</p>
-        <h1 id="candidateName">Job search</h1>
-        <p class="sub" id="mailboxLine">Your search workspace</p>
-      </a>
-      <nav class="app-nav" aria-label="App">
-        <a href="#/" data-view="home">Overview</a>
-        <a href="#/applications" data-view="apps">Applications</a>
-        <a href="#/mail" data-view="mail">Mail</a>
-      </nav>
-      <div class="top-actions">
-        <div class="seg" id="trackSeg" role="tablist" aria-label="Track">
-          <button class="seg-btn is-on" data-track="all" type="button">All</button>
+      <section data-view="home" hidden>
+        <div class="panel-head">
+          <h1>New matches</h1>
+          <div class="row">
+            <button id="btnSearch" class="btn primary" type="button">Search</button>
+            <button id="btnExcel" class="btn" type="button">Download Excel</button>
+          </div>
         </div>
-        <label class="google-search">
-          <span class="visually-hidden">Google search</span>
-          <input id="googleQuery" type="search" placeholder="Google search — type a string" autocomplete="off" spellcheck="false">
-        </label>
-        <button class="btn" id="btnScout" type="button" title="Search LinkedIn, Indeed, Jobright, and Google now">Find jobs</button>
-        <a class="btn" id="btnExcel" hidden href="/api/excel">Download Excel</a>
-        <button class="btn btn-ghost" id="btnSync" type="button">Sync mailbox</button>
-        <a class="btn btn-ghost" id="btnSetup" href="#/settings">Resume &amp; search</a>
-      </div>
-    </header>
-
-    <main>
-      <p class="sync-note" id="syncNote" hidden></p>
-
-      <section class="view is-on" id="view-home">
-        <section class="panel profile-panel">
-          <header class="panel-h row">
-            <div>
-              <h2>Resume, titles, and location</h2>
-              <p>These are the answers used when you click Find jobs on LinkedIn, Indeed, Jobright, and Google.</p>
-            </div>
-            <div class="filters">
-              <button class="btn" id="btnScoutInline" type="button">Run scraper now</button>
-              <a class="btn btn-ghost" id="btnExcelInline" hidden href="/api/excel">Download Excel</a>
-              <a class="btn btn-ghost" href="#/settings">Edit</a>
-              <button class="btn btn-ghost" id="btnEraseDevice" type="button" hidden>Erase this device</button>
-            </div>
-          </header>
-          <div class="profile-grid" id="searchProfile"></div>
-        </section>
-
-        <section class="kpis" id="kpis">
-          <p class="empty" style="grid-column:1/-1">Loading your workspace…</p>
-        </section>
-
-        <section class="grid-2">
-          <article class="panel">
-            <header class="panel-h">
-              <h2>Hiring funnel</h2>
-              <p>Applications matched from the mailbox and job ledger.</p>
-            </header>
-            <div id="funnel"></div>
-          </article>
-          <article class="panel">
-            <header class="panel-h">
-              <h2>Mailbox activity</h2>
-              <p>Job-related emails by week.</p>
-            </header>
-            <div class="chart" id="mailChart"></div>
-            <p class="caption" id="mailCaption"></p>
-          </article>
-        </section>
-
-        <section class="grid-2">
-          <article class="panel">
-            <header class="panel-h">
-              <h2>What the numbers mean</h2>
-            </header>
-            <div class="insights" id="insights"></div>
-          </article>
-          <article class="panel">
-            <header class="panel-h">
-              <h2>Applications logged</h2>
-              <p>When a matched posting first entered the ledger.</p>
-            </header>
-            <div class="chart" id="jobsChart"></div>
-          </article>
-        </section>
-
-        <section class="panel">
-          <header class="panel-h">
-            <h2>Needs attention</h2>
-            <p>Interviews, assessments, and offers.</p>
-          </header>
-          <div class="table-wrap" id="attention"></div>
-        </section>
-
-        <section class="grid-2">
-          <article class="panel">
-            <header class="panel-h">
-              <h2>Companies in play</h2>
-            </header>
-            <div id="companies"></div>
-          </article>
-          <article class="panel">
-            <header class="panel-h">
-              <h2>Search snapshot</h2>
-            </header>
-            <div id="tracks"></div>
-          </article>
-        </section>
+        <p id="statusLive" class="hint" aria-live="polite"></p>
+        <p id="kpi" class="kpi"></p>
+        <div class="filters">
+          <label for="jobSearch">Filter roles</label>
+          <input id="jobSearch" type="search" placeholder="Title or company">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="all">All</option>
+            <option value="new">New</option>
+            <option value="saved">Saved</option>
+            <option value="applied">Applied</option>
+            <option value="assessment">Assessment</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="rejected">Rejected</option>
+            <option value="withdrawn">Withdrawn</option>
+          </select>
+        </div>
+        <p id="jobCount" aria-live="polite"></p>
+        <ul id="jobList" class="jobs"></ul>
       </section>
 
-      <section class="view" id="view-apps">
-        <section class="panel">
-          <header class="panel-h row">
-            <div>
-              <h2>Application ledger</h2>
-              <p>Every matched application. Change status here if mail got it wrong.</p>
-            </div>
-            <div class="filters">
-              <select id="statusFilter">
-                <option value="applied,assessment,interview,offer,rejected,withdrawn">All applications</option>
-                <option value="interview,assessment,offer">Active pipeline</option>
-                <option value="applied">Waiting</option>
-                <option value="interview">Interviews</option>
-                <option value="assessment">Assessments</option>
-                <option value="rejected">Rejected</option>
-                <option value="offer">Offers</option>
-              </select>
-              <input id="jobSearch" type="search" placeholder="Search title or company" autocomplete="off">
-            </div>
-          </header>
-          <div class="table-wrap" id="pipeline"></div>
-          <p class="caption" id="pipelineCaption"></p>
-        </section>
+      <section data-view="tracker" hidden>
+        <h1>Tracker</h1>
+        <p class="hint">Move a role as it changes. Counts on the home screen come from this list.</p>
+        <div id="board" class="board"></div>
       </section>
 
-      <section class="view" id="view-mail">
-        <section class="panel">
-          <header class="panel-h row">
-            <div>
-              <h2>Job-related mail</h2>
-              <p>Classified inbox. Personal mail is excluded.</p>
-            </div>
-            <div class="filters">
-              <select id="mailStage">
-                <option value="job">All job mail</option>
-                <option value="applied">Receipts</option>
-                <option value="interview">Interviews</option>
-                <option value="assessment">Assessments</option>
-                <option value="rejected">Rejections</option>
-                <option value="offer">Offers</option>
-              </select>
-              <select id="mailLinked">
-                <option value="all">Matched and unmatched</option>
-                <option value="linked">Matched to a posting</option>
-                <option value="unlinked">Unmatched</option>
-              </select>
-            </div>
-          </header>
-          <div class="table-wrap" id="mail"></div>
-          <p class="caption" id="mailTableCaption"></p>
-        </section>
+      <section data-view="settings" hidden>
+        <h1>Settings</h1>
+        <p id="settingsName"></p>
+        <p id="resumeName"></p>
+        <label class="check" for="liveBoards"><input id="liveBoards" type="checkbox"> Search live boards on this computer</label>
+        <p class="hint">Off by default. The public site never scrapes LinkedIn, Indeed, Google, or Jobright.</p>
+        <button id="btnLocalScout" class="btn" type="button">Run local board search</button>
+        <label class="check" for="mailOptIn"><input id="mailOptIn" type="checkbox"> Sync application mail on this computer</label>
+        <button id="btnMail" class="btn" type="button">Sync mail</button>
+        <button id="btnNotify" class="btn" type="button">Allow notifications</button>
+        <p class="hint">A notification says how many new postings were found. It does not include your resume.</p>
+        <button id="btnHealth" class="btn" type="button">Check Mac app</button>
+        <p id="healthOut" class="hint" aria-live="polite"></p>
+        <h2>Backup</h2>
+        <div class="row">
+          <button id="btnExport" class="btn" type="button">Export JSON</button>
+          <label class="btn" for="importFile">Import JSON</label>
+          <input id="importFile" type="file" accept="application/json,.json" hidden>
+        </div>
+        <h2>Erase</h2>
+        <p class="hint">This removes the resume, roles, and tracker stored in this browser.</p>
+        <button id="btnErase" class="btn danger" type="button">Erase everything</button>
       </section>
     </main>
-
-    <footer>
-      Everything stays on this device. We do not have accounts or a database. Mail is read only when you press Sync mailbox on your computer.
-    </footer>
-  </section>
-
-  <script src="browser-scout.js?v=google7"></script>
-  <script src="app.js?v=google7"></script>
+  </div>
 </body>
 </html>
