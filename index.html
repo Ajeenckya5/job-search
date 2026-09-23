@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#1b1914">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <script type="module" crossorigin src="./assets/index-BsCmGZvJ.js"></script>
+  <script type="module" crossorigin src="./assets/index-Cr-eNi1N.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-zlvt8BJj.css">
 </head>
 <body>
@@ -113,6 +113,16 @@
         <h1>Settings</h1>
         <p id="settingsName"></p>
         <p id="resumeName"></p>
+        <h2>Sources</h2>
+        <ul>
+          <li>Company boards are always on.</li>
+          <li>LinkedIn, Google Jobs, and Jobright are saved from pages you already have open, or from alert email on this computer.</li>
+          <li>Scheduled LinkedIn search is off.</li>
+        </ul>
+        <p class="hint">Install the capture extension from the extension folder with Load unpacked. It does not browse or log in.</p>
+        <label for="extensionId">Extension id</label>
+        <input id="extensionId" type="text" autocomplete="off" spellcheck="false">
+        <button id="btnImportCapture" class="btn" type="button">Import jobs saved by the extension</button>
         <label class="check" for="liveBoards"><input id="liveBoards" type="checkbox"> Search live boards on this computer</label>
         <p class="hint">Off by default. The public site never scrapes LinkedIn, Indeed, Google, or Jobright.</p>
         <button id="btnLocalScout" class="btn" type="button">Run local board search</button>
