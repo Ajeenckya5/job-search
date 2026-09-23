@@ -12,7 +12,7 @@
   "externally_connectable": {
     "matches": ["https://ajeenckya5.github.io/*", "http://127.0.0.1/*"]
   },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": { "service_worker": "background.js" },
   "action": { "default_title": "Save jobs on this page" },
     "content_scripts": [
     {
@@ -42,6 +42,12 @@
     }
   ],
   "browser_specific_settings": {
-    "gecko": { "id": "job-autopilot@localhost", "strict_min_version": "109.0" }
+    "gecko": {
+      "id": "job-autopilot@localhost",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   }
 }
